@@ -114,3 +114,25 @@ int Networking::Client::Client::Send(char* _pSendBuffer)
     }
     return bytesSent;
 }
+
+std::vector <char> Networking::Client::Client::Receive()
+{
+    int bytesReceived =0;
+    std::vector<char> receiveBuffer;
+
+    do{
+        int bufferStart = receiveBuffer.size();
+        receiveBuffer.resize(bufferStart+512);
+        bytesReceived = recv(connectionSocket, &receiveBuffer[bufferStart],512,0);
+        receiveBuffer.resize(bufferStart + bytesReceived);
+    } while (bytesReceived == 512);
+
+ if (bytesReceived == -1)
+ {
+    int errorCode = GETERROR();
+    CLOSESOCKET(connectionSocket);
+    #ifdef _WIN32
+    WSACleanup();
+    #endif
+ }   
+}
