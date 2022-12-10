@@ -37,6 +37,7 @@ typedef const char* PCSTR;
 
 namespace Networking{
 
+// Struct to hold information about a connected client
 struct ClientConnection{
 SOCKET clientSocket;
 sockaddr_in clientInfo;
@@ -45,26 +46,67 @@ sockaddr_in clientInfo;
 
     class Server{
         public:
-        Server();
-        Server(int _pPortNumber);
-        ~Server();
-        bool InitServer();
-        bool CreateServerSocket(int _pPortNumber);
-        Networking::ClientConnection Listen();
-        void SetSocketType(int _pSockType);
-        void SetFamily(int _pFamily);
-        void SetProtocol(int _pProtocol);
-        int Send(char* _pSendBuffer, Networking::ClientConnection _pClient);
-        int SendTo(char* _pBuffer, char* _pAddress, int _pPort);
-        int SendToAll(char* _pSendBuffer);
-        void SendFile(const std::string& _pFilePath, Networking::ClientConnection client);
-        std::vector<char> Receive(Networking::ClientConnection client);
-        std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
-        void ReceiveFile(const std::string& _pFilePath, Networking::ClientConnection client);
-        bool ServerIsRunning();
-        void Shutdown();
-        void DisconnectClient(Networking::ClientConnection _pClient);
-        std::vector<Networking::ClientConnection> getClients() const;
+     // Default constructor
+    Server();
+
+    // Constructor that takes in a port number
+    Server(int _pPortNumber);
+
+    // Destructor
+    ~Server();
+
+    // Initializes the server
+    bool InitServer();
+
+    // Creates a socket for the server using the specified port number
+    bool CreateServerSocket(int _pPortNumber);
+
+    // Listens for incoming client connections and returns a 
+    // Networking::ClientConnection object representing the connected client
+    Networking::ClientConnection Listen();
+
+    // Sets the socket type
+    void SetSocketType(int _pSockType);
+
+    // Sets the socket family
+    void SetFamily(int _pFamily);
+
+    // Sets the socket protocol
+    void SetProtocol(int _pProtocol);
+
+    // Sends data to a specific client
+    int Send(char* _pSendBuffer, Networking::ClientConnection _pClient);
+
+    // Sends data to a specific address and port
+    int SendTo(char* _pBuffer, char* _pAddress, int _pPort);
+
+    // Sends data to all connected clients
+    int SendToAll(char* _pSendBuffer);
+
+    // Sends a file to a specific client
+    void SendFile(const std::string& _pFilePath, Networking::ClientConnection client);
+
+    // Receives data from a specific client
+    std::vector<char> Receive(Networking::ClientConnection client);
+
+    // Receives data from a specific address and port
+    std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
+
+    // Receives a file from a specific client
+    void ReceiveFile(const std::string& _pFilePath, Networking::ClientConnection client);
+
+    // Returns true if the server is currently running and listening for connections
+    // Returns false otherwise
+    bool ServerIsRunning();
+     // Shut down the server
+void Shutdown();
+
+// Disconnects a specific client
+void DisconnectClient(Networking::ClientConnection _pClient);
+
+// Returns a vector of Networking::ClientConnection objects representing all 
+// currently connected clients
+std::vector<Networking::ClientConnection> getClients() const;
 
         private:
         #ifdef _WIN32
