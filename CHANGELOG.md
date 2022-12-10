@@ -12,3 +12,10 @@
 -  Added CreateClientUDPSocket() method
 - Added comments to the code to explain what each method does.
 - Added SendFile() and ReceiveFile()
+
+### Server
+
+- Added a SendToAll() method to send data to all connected clients
+- Added a Shutdown() method to gracefully shutdown the server
+- Added a Disconnect() method to disconnect a specified client from the server and remove them from the list of clients
+- Added a getClients() method to return the list of currently connected clients.

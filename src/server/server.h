@@ -23,6 +23,7 @@
 #ifndef _NETWORK_MACROS_
 #define _NETWORK_MACROS_
 #define SOCKET int
+#define SOCKET_ERROR -1
 #define INVALIDSOCKET(s) ((s) < 0)
 #define GETERROR() (errno)
 #define CLOSESOCKET(s) (close(s))
@@ -53,9 +54,27 @@ sockaddr_in clientInfo;
         void SetSocketType(int _pSockType);
         void SetFamily(int _pFamily);
         void SetProtocol(int _pProtocol);
-        bool Send(char* _SendBuffer);
-        std::vector<char> Receive();
+        int Send(char* _pSendBuffer, Networking::ClientConnection _pClient);
+        int SendTo(char* _pBuffer, char* _pAddress, int _pPort);
+        int SendToAll(char* _pSendBuffer);
+        void SendFile(const std::string& _pFilePath, Networking::ClientConnection client);
+        std::vector<char> Receive(Networking::ClientConnection client);
+        std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
+        void ReceiveFile(const std::string& _pFilePath, Networking::ClientConnection client);
         bool ServerIsRunning();
+        void Shutdown();
+        void DisconnectClient(Networking::ClientConnection _pClient);
+        std::vector<Networking::ClientConnection> getClients() const;
+
+        private:
+        #ifdef _WIN32
+        WSADATA wsaData;
+        #endif
+        addrinfo addressInfo;
+        SOCKET serverSocket;
+        sockaddr_in serverInfo;
+        bool serverIsConnected = false;
+        std::vector<Networking::ClientConnection> clients;
     };
 }
 

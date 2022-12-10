@@ -47,7 +47,7 @@ Initializes the client socket.
 ### bool CreateClientTCPSocket(char* _pHost, int _pPort)
 Creates a TCP client socket with the specified host and port.
 
-### bool CreateClientUDPSocket(char* _pHost, int _pPort)
+### bool CreateClientUDPSocket(char* _pHost, int pPort)
 Creates a UDP client socket with the specified host and port.
 
 ### bool CreateClientSocket(char* _pHost, int pPort)
@@ -95,4 +95,26 @@ Address information for the client socket.
 ### addrinfo* hostAddressInfo
 Pointer to the address information for the host the client is connected to.
 
+# Server Class
+
+The class Server is used for creating a server socket that can accept incoming connections from clients and send/receive data to/from them.
+
+Server(): The default constructor that initializes the server using the InitServer() method.
+Server(int _pPortNumber): This constructor initializes the server using the InitServer() method and creates the server socket with the specified port number using the CreateServerSocket() method.
+~Server(): The destructor that cleans up any resources allocated by the class.
+bool InitServer(): This method initializes the server by starting the Windows Sockets DLL (on Windows) and returning a boolean indicating whether the initialization was successful.
+bool CreateServerSocket(int _pPortNumber): This method creates the server socket and binds it to the specified port number. It returns a boolean indicating whether the socket was created and bound successfully.
+Networking::ClientConnection Listen(): This method listens for incoming connections from clients and returns a Networking::ClientConnection struct containing information about the client that connected.
+void SetSocketType(int _pSockType): This method sets the socket type (e.g. SOCK_STREAM or SOCK_DGRAM) for the server socket.
+void SetFamily(int _pFamily): This method sets the address family (e.g. AF_INET or AF_INET6) for the server socket.
+void SetProtocol(int _pProtocol): This method sets the protocol (e.g. IPPROTO_TCP or IPPROTO_UDP) for the server socket.
+int Send(char* _pSendBuffer, Networking::ClientConnection _pClient): This method sends data to the specified client. It returns the number of bytes sent.
+int SendTo(char* _pBuffer, char* _pAddress, int _pPort): This method sends data to the specified address and port. It returns the number of bytes sent.
+int SendToAll(char* _pSendBuffer): This method sends data to all connected clients. It returns the number of bytes sent to each client.
+void SendFile(const std::string& _pFilePath, Networking::ClientConnection client): This method sends a file to the specified client.
+std::vector<char> Receive(Networking::ClientConnection client): This method receives data from the specified client and returns it as a vector of chars.
+std::vector<char> ReceiveFrom(char* _pAddress, int _pPort): This method receives data from the specified address and port and returns it as a vector of chars.
+void ReceiveFile(const std::string& _pFilePath, Networking::ClientConnection client): This method receives a file from the specified client and saves it to the specified file path.
+bool ServerIsRunning(): This method returns a boolean indicating whether the server is currently running (i.e. has a valid server socket).
+void Shutdown(): This method shuts down the server socket.
 
