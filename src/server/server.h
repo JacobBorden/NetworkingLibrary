@@ -35,12 +35,19 @@ typedef const char* PCSTR;
 #include <string>
 #include <vector>
 
+enum ServerType
+{
+IPv4,
+IPv6
+};
+
 namespace Networking{
 
 // Struct to hold information about a connected client
 struct ClientConnection{
 SOCKET clientSocket;
 sockaddr_in clientInfo;
+sockaddr_in6 clientInfo6;
 };
 
 
@@ -52,6 +59,12 @@ sockaddr_in clientInfo;
     // Constructor that takes in a port number
     Server(int _pPortNumber);
 
+    //Constructor thst takes in a server type
+    Server(ServerType _pServerType);
+
+    //Constructor that takes in a port number and a server type
+    Server(int _pPortNumber, ServerType _pServerType);
+
     // Destructor
     ~Server();
 
@@ -60,6 +73,9 @@ sockaddr_in clientInfo;
 
     // Creates a socket for the server using the specified port number
     bool CreateServerSocket(int _pPortNumber);
+
+    //Creates a socket for the server using the specified port number and server type
+    bool CreateServerSocket(int _pPortNumber, ServerType _pServerType);
 
     // Listens for incoming client connections and returns a 
     // Networking::ClientConnection object representing the connected client
