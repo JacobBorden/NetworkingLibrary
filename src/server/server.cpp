@@ -8,7 +8,8 @@ Networking::Server::Server()
     }
     catch(int errorCode)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode;
+        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
+        ErrorHandling(errorCode);
     }
 }
 
@@ -20,7 +21,8 @@ Networking::Server::Server(ServerType _pServerType)
     }
     catch(int errorCode)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode;
+        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
+        ErrorHandling(errorCode);
     }
 }
 
@@ -32,7 +34,8 @@ Networking::Server::Server(int _pPortNumber,  ServerType _pServerType)
     }
     catch(int errorCode)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode;
+        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
+        ErrorHandling(errorCode);
     }
 }
 
@@ -44,7 +47,8 @@ Networking::Server::Server(int _pPortNumber)
     }
     catch(int errorCode)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode;
+        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
+        ErrorHandling(errorCode);
     }
 }
 
@@ -628,4 +632,58 @@ void Networking::Server::Shutdown()
 std::vector<Networking::ClientConnection> Networking::Server::getClients() const
 {
     return clients;
+}
+
+//Handles Errors
+
+void Networking::Server::ErrorHandling(int _pErrorCode)
+{
+    #ifdef _WIN32
+    if ( _pErrorCode == WSASYSNOTREADY)
+    {
+        std::cerr<<"The underlying network subsystem is not ready for network communication"<<std::endl;
+    }
+    else if (errorCode == WSAVERNOTSUPPORTED)
+    {
+        std::cerr << "The version of the Windows Sockets specification requested is not supported" << std::endl;
+    }
+    else if (errorCode == WSAEPROCLIM)
+    {
+        std::cerr << "The limit on the number of tasks supported by the Windows Sockets implementation has been reached" << std::endl;
+    }
+    else if (errorCode == WSAEFAULT)
+    {
+        std::cerr << "The lpWSAData parameter is not a valid pointer" << std::endl;
+    }
+    #else
+    if(_pErrorCode == EACCES)
+    {
+        std::cerr<<"he process does not have the appropriate privileges to create a socket of the specified type or protocol."<<std::endl;
+    }
+
+     if(_pErrorCode == EAFNOSUPPORT)
+    {
+        std::cerr<<"The specified address family is not supported."<<std::endl;
+    }
+
+     if(_pErrorCode == EMFILE)
+    {
+        std::cerr<<"The per-process descriptor table is full."<<std::endl;
+    }
+
+     if(_pErrorCode == ENFILE)
+    {
+        std::cerr<<"The system file table is full."<<std::endl;
+    }
+
+     if(_pErrorCode == ENOBUFS)
+    {
+        std::cerr<<"Insufficient memory was available to create the socket."<<std::endl;
+    }
+
+     if(_pErrorCode == EPROTONOSUPPORT)
+    {
+        std::cerr<<"The specified protocol is not supported by the address family."<<std::endl;
+    }
+    #endif
 }

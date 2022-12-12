@@ -124,6 +124,9 @@ void DisconnectClient(Networking::ClientConnection _pClient);
 // currently connected clients
 std::vector<Networking::ClientConnection> getClients() const;
 
+//Handles errors
+void ErrorHandling(int _pErrorCode);
+
         private:
         #ifdef _WIN32
         WSADATA wsaData;
