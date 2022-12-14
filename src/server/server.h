@@ -34,6 +34,7 @@ typedef const char* PCSTR;
 #include <iostream>
 #include <string>
 #include <vector>
+#include "networkexception.h"
 
 enum ServerType
 {
@@ -125,7 +126,7 @@ void DisconnectClient(Networking::ClientConnection _pClient);
 std::vector<Networking::ClientConnection> getClients() const;
 
 //Handles errors
-void ErrorHandling(int _pErrorCode);
+void ErrorHandling(NetworkException _pNetEx);
 
         private:
         #ifdef _WIN32

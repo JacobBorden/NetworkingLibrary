@@ -6,10 +6,10 @@ Networking::Server::Server()
         Networking::Server::InitServer();
         Networking::Server::CreateServerSocket(8080);
     }
-    catch(int errorCode)
+    catch(NetworkException netEx)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
-        ErrorHandling(errorCode);
+        std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
+        ErrorHandling(netEx);
     }
 }
 
@@ -19,10 +19,10 @@ Networking::Server::Server(ServerType _pServerType)
         Networking::Server::InitServer();
         Networking::Server::CreateServerSocket(8080, _pServerType);
     }
-    catch(int errorCode)
+   catch(NetworkException netEx)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
-        ErrorHandling(errorCode);
+        std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
+        ErrorHandling(netEx);
     }
 }
 
@@ -32,10 +32,10 @@ Networking::Server::Server(int _pPortNumber,  ServerType _pServerType)
         Networking::Server::InitServer();
         Networking::Server::CreateServerSocket(_pPortNumber, _pServerType);
     }
-    catch(int errorCode)
+   catch(NetworkException netEx)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
-        ErrorHandling(errorCode);
+        std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
+        ErrorHandling(netEx);
     }
 }
 
@@ -45,10 +45,10 @@ Networking::Server::Server(int _pPortNumber)
         Networking::Server::InitServer();
         Networking::Server::CreateServerSocket(_pPortNumber);
     }
-    catch(int errorCode)
+   catch(NetworkException netEx)
     {
-        std::cerr<<"Exception thrown. Error Code "<<errorCode <<std::endl;
-        ErrorHandling(errorCode);
+        std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
+        ErrorHandling(netEx);
     }
 }
 
@@ -61,8 +61,11 @@ bool Networking::Server::InitServer()
     #ifdef _WIN32
     int erroCode = WSAStartup(VERSIONREQUESTED, wsaData);
     if(errorCode)
-        throw errorCode;
-    #endif
+        {
+            Networking::NetworkException netEx(-1, errorCode, "Unable to Initilize Server");
+            throw netEx;
+        }
+   #endif
 
     return true;
 }
@@ -80,16 +83,9 @@ serverSocket = socket(addressInfo.ai_family, addressInfo.ai_socktype, addressInf
 // Check if the socket was successfully created
 if (INVALIDSOCKET(serverSocket))
 {
-    // Get the error code
     int errorCode = GETERROR();
-
-    #ifdef _WIN32
-    // Clean up the Windows Sockets DLL
-    WSACleanup();
-    #endif
-
-    // Throw the error code
-    throw errorCode;
+  Networking::NetworkException netEx(serverSocket, errorCode, "Unable to create socket");
+  throw netEx;
 }
 
 // Set up the sockaddr_in structure
@@ -105,17 +101,9 @@ if (bindResult == SOCKET_ERROR)
 {
     // Get the error code
     int errorCode = GETERROR();
+      Networking::NetworkException netEx(serverSocket, errorCode, "Unable to bind socket");
+  throw netEx;
 
-    // Close the socket
-    CLOSESOCKET(serverSocket);
-
-    #ifdef _WIN32
-    // Clean up the Windows Sockets DLL
-    WSACleanup();
-    #endif
-
-    // Throw the error code
-    throw errorCode;
 }
 
 // Start listening for incoming connections
@@ -126,17 +114,9 @@ if (listenResult == SOCKET_ERROR)
 {
     // Get the error code
     int errorCode = GETERROR();
+       Networking::NetworkException netEx(serverSocket, errorCode, "Unable to listen to socket");
+  throw netEx;
 
-    // Close the socket
-    CLOSESOCKET(serverSocket);
-
-    #ifdef _WIN32
-    // Clean up the Windows Sockets DLL
-    WSACleanup();
-    #endif
-
-    // Throw the error code
-    throw errorCode;
 }
 
 serverIsConnected = true;
@@ -161,16 +141,9 @@ serverSocket = socket(addressInfo.ai_family, addressInfo.ai_socktype, addressInf
 // Check if the socket was successfully created
 if (INVALIDSOCKET(serverSocket))
 {
-    // Get the error code
-    int errorCode = GETERROR();
-
-    #ifdef _WIN32
-    // Clean up the Windows Sockets DLL
-    WSACleanup();
-    #endif
-
-    // Throw the error code
-    throw errorCode;
+        int errorCode = GETERROR();
+  Networking::NetworkException netEx(serverSocket, errorCode, "Unable to create socket");
+  throw netEx;
 }
 
 // Set up the sockaddr_in structure
@@ -186,17 +159,9 @@ if (bindResult == SOCKET_ERROR)
 {
     // Get the error code
     int errorCode = GETERROR();
+      Networking::NetworkException netEx(serverSocket, errorCode, "Unable to bind socket");
+  throw netEx;
 
-    // Close the socket
-    CLOSESOCKET(serverSocket);
-
-    #ifdef _WIN32
-    // Clean up the Windows Sockets DLL
-    WSACleanup();
-    #endif
-
-    // Throw the error code
-    throw errorCode;
 }
 
 // Start listening for incoming connections
@@ -207,17 +172,9 @@ if (listenResult == SOCKET_ERROR)
 {
     // Get the error code
     int errorCode = GETERROR();
+       Networking::NetworkException netEx(serverSocket, errorCode, "Unable to listen to socket");
+  throw netEx;
 
-    // Close the socket
-    CLOSESOCKET(serverSocket);
-
-    #ifdef _WIN32
-    // Clean up the Windows Sockets DLL
-    WSACleanup();
-    #endif
-
-    // Throw the error code
-    throw errorCode;
 }
 
 serverIsConnected = true;
@@ -636,54 +593,100 @@ std::vector<Networking::ClientConnection> Networking::Server::getClients() const
 
 //Handles Errors
 
-void Networking::Server::ErrorHandling(int _pErrorCode)
+void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
 {
-    #ifdef _WIN32
-    if ( _pErrorCode == WSASYSNOTREADY)
-    {
-        std::cerr<<"The underlying network subsystem is not ready for network communication"<<std::endl;
+    switch(_pNetEx.GetErrorCode()){
+        #ifdef _WIN32
+            case WSASYSNOTREADY:
+                 std::cerr<<"The underlying network subsystem is not ready for network communication."<<std::endl;
+                break;
+            case WSAVERNOTSUPPORTED:
+                std::cerr<<"The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation."<<std::endl;
+                break;
+            case WSAEINPROGRESS:
+                std::cerr<<"A blocking Windows Sockets 1.1 operation is in progress."<<std::endl;
+                WSACleanup();
+                if(!INVALIDSOCKET(_pNetEx.GetSocket()))
+                    CLOSESOCKET(_pNetEx.GetSoclet());
+                break;
+            case WSAEPROCLIM:
+                std::cerr<<"A limit on the number of tasks supported by the Windows Sockets implementation has been reached."<<std::endl;
+                break;
+            case WSAEFAULT:
+                std::cerr<<"The lpWSAData parameter is not a valid pointer."<<std::endl;
+                break;
+            case WSANOTINITIALISED:
+                std::cerr<<"A successful WSAStartup call must occur before using this function."<<std::endl;
+                break;
+            case WSAENETDOWN:
+                std::cerr<<"The network subsystem or the associated service provider has failed."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAEAFNOSUPPORT:
+                std::cerr<<"The specified address family is not supported. For example, an application tried to create a socket for the AF_IRDA address family but an infrared adapter and device driver is not installed on the local computer."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAEMFILE:
+                std::cerr<<"No more socket descriptors are available."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAINVAL:
+                std::cerr<<"An invalid argument was supplied. This error is returned if the af parameter is set to AF_UNSPEC and the type and protocol parameter are unspecified."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAEINVALIDPROVIDER:
+                std::cerr<<"The service provider returned a version other than 2.2."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAEINVALIDPROCTABLE:
+                std::cerr<<"The service provider returned an invalid or incomplete procedure table to the WSPStartup."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAENOBUFS:
+                std::cerr<<"o buffer space is available. The socket cannot be created."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAEPROTONOSUPPORT:
+                std::cerr<<"he specified protocol is not supported."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAEPROTOTYPE:
+                std::cerr<<"he specified protocol is the wrong type for this socket."<<std:endl;
+                WSACleanup();
+                break;
+            case WSAEPROVIDERFAILEDINIT:
+                std::cerr<<"The service provider failed to initialize. This error is returned if a layered service provider (LSP) or namespace provider was improperly installed or the provider fails to operate correctly."<<std::endl;
+                WSACleanup();
+                break;
+            case WSAESOCKTNOSUPPORT:
+                std::cerr<<"The specified socket type is not supported in this address family."<<std::endl;
+                WSACleanup();
+                break;
+        #else
+            case EACCES:
+                std::cerr<<"The process does not have the required privileges to create a socket."<<std::endl;
+                break;
+            case EAFNOSUPPORT:
+                std::cerr<<"The specified address domain is not supported."<<std::endl;
+                break;
+            case EINVAL:
+                std::cerr<<"The specified address domain, socket type, or protocol is invalid."<<std::endl;
+                break;
+            case EMFILE:
+                std::cerr<<"The process has reached its limit for the number of open file descriptors."<<std::endl;
+                break;
+            case ENFILE:
+                std::cerr<<"The system has reached its limit for the total number of open files."<<std::endl;
+                break;
+            case ENOBUFS:
+                std::cerr<<"There is not enough memory available to create a new socket."<<std::endl;
+                break;
+            case ENOMEM:
+                std::cerr<<"There is not enough memory available to create a new socket."<<std::endl;
+                break;
+            case EPROTONOSUPPORT:
+                std::cerr<<"The specified protocol is not supported."<<std::endl;
+                break;
+        #endif
     }
-    else if (errorCode == WSAVERNOTSUPPORTED)
-    {
-        std::cerr << "The version of the Windows Sockets specification requested is not supported" << std::endl;
-    }
-    else if (errorCode == WSAEPROCLIM)
-    {
-        std::cerr << "The limit on the number of tasks supported by the Windows Sockets implementation has been reached" << std::endl;
-    }
-    else if (errorCode == WSAEFAULT)
-    {
-        std::cerr << "The lpWSAData parameter is not a valid pointer" << std::endl;
-    }
-    #else
-    if(_pErrorCode == EACCES)
-    {
-        std::cerr<<"he process does not have the appropriate privileges to create a socket of the specified type or protocol."<<std::endl;
-    }
-
-     if(_pErrorCode == EAFNOSUPPORT)
-    {
-        std::cerr<<"The specified address family is not supported."<<std::endl;
-    }
-
-     if(_pErrorCode == EMFILE)
-    {
-        std::cerr<<"The per-process descriptor table is full."<<std::endl;
-    }
-
-     if(_pErrorCode == ENFILE)
-    {
-        std::cerr<<"The system file table is full."<<std::endl;
-    }
-
-     if(_pErrorCode == ENOBUFS)
-    {
-        std::cerr<<"Insufficient memory was available to create the socket."<<std::endl;
-    }
-
-     if(_pErrorCode == EPROTONOSUPPORT)
-    {
-        std::cerr<<"The specified protocol is not supported by the address family."<<std::endl;
-    }
-    #endif
 }
