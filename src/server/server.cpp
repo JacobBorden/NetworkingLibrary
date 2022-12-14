@@ -597,6 +597,9 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
 {
     switch(_pNetEx.GetErrorCode()){
         #ifdef _WIN32
+        
+        // WSAStartup() error codes
+
             case WSASYSNOTREADY:
                  std::cerr<<"The underlying network subsystem is not ready for network communication."<<std::endl;
                 break;
@@ -607,17 +610,23 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 std::cerr<<"A blocking Windows Sockets 1.1 operation is in progress."<<std::endl;
                 if(!INVALIDSOCKET(_pNetEx.GetSocket()))
                     CLOSESOCKET(_pNetEx.GetSoclet());
-                  WSACleanup();
+                WSACleanup();
                 break;
             case WSAEPROCLIM:
                 std::cerr<<"A limit on the number of tasks supported by the Windows Sockets implementation has been reached."<<std::endl;
                 break;
             case WSAEFAULT:
-                std::cerr<<"The lpWSAData parameter is not a valid pointer."<<std::endl;
+                std::cerr<<"The system detected an invalid pointer address in attempting to use a pointer argument in a call."<<std::endl;
+                if(!INVALIDSOCKET(_pNetEx.GetSocket()))
+                    CLOSESOCKET(_pNetEx.GetSoclet());
+                WSACleanup();
                 break;
             case WSANOTINITIALISED:
                 std::cerr<<"A successful WSAStartup call must occur before using this function."<<std::endl;
                 break;
+    
+    // socket() error codes
+            
             case WSAENETDOWN:
                 std::cerr<<"The network subsystem or the associated service provider has failed."<<std::endl;
                 WSACleanup();
@@ -632,6 +641,8 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 break;
             case WSAINVAL:
                 std::cerr<<"An invalid argument was supplied. This error is returned if the af parameter is set to AF_UNSPEC and the type and protocol parameter are unspecified."<<std::endl;
+                 if(!INVALIDSOCKET(_pNetEx.GetSocket()))
+                    CLOSESOCKET(_pNetEx.GetSoclet());
                 WSACleanup();
                 break;
             case WSAEINVALIDPROVIDER:
@@ -643,7 +654,9 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 WSACleanup();
                 break;
             case WSAENOBUFS:
-                std::cerr<<"o buffer space is available. The socket cannot be created."<<std::endl;
+                std::cerr<<"No buffer space is available."<<std::endl;
+                 if(!INVALIDSOCKET(_pNetEx.GetSocket()))
+                    CLOSESOCKET(_pNetEx.GetSoclet());
                 WSACleanup();
                 break;
             case WSAEPROTONOSUPPORT:
@@ -662,15 +675,44 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 std::cerr<<"The specified socket type is not supported in this address family."<<std::endl;
                 WSACleanup();
                 break;
+
+        // bind() error codes
+
+            case WSAEACCES:
+                std::cerr<<"An attempt was made to access a socket in a way forbidden by its access permissions."<<std::endl;
+                CLOSESOCKET(_pNetEx.GetSocket());
+                WSACleanup();
+                break;
+            case WSAEADDRINUSE:
+                std::cerr<<"Only one usage of each socket address (protocol/network address/port) is normally permitted."<<std::endl;
+                CLOSESOCKET(_pNetEx.GetSocket());
+                WSACleanup();
+                break;
+            case WSAEADDRNOTAVAIL:
+                std::cerr<<"The requested address is not valid in its context"<<std::endl;
+                CLOSESOCKET(_pNetEx.GetSocket());
+                WSACleanup();
+                break;
+            case WSAENOTSOCK:
+                std::cerr<<"An operation was attempted on something that is not a socket."<<std::endl;
+                WSACleanup();
+                break;
         #else
+
+         // socket() error codes
+
             case EACCES:
                 std::cerr<<"The process does not have the required privileges to create a socket."<<std::endl;
                 break;
             case EAFNOSUPPORT:
                 std::cerr<<"The specified address domain is not supported."<<std::endl;
+                 if(!INVALIDSOCKET(_pNetEx.GetSocket()))
+                    CLOSESOCKET(_pNetEx.GetSocket());
                 break;
             case EINVAL:
                 std::cerr<<"The specified address domain, socket type, or protocol is invalid."<<std::endl;
+                  if(!INVALIDSOCKET(_pNetEx.GetSocket()))
+                    CLOSESOCKET(_pNetEx.GetSocket());
                 break;
             case EMFILE:
                 std::cerr<<"The process has reached its limit for the number of open file descriptors."<<std::endl;
@@ -686,6 +728,24 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 break;
             case EPROTONOSUPPORT:
                 std::cerr<<"The specified protocol is not supported."<<std::endl;
+                break;
+
+        // bind() error codes
+
+            case EADDRINUSE:
+                std::cerr<<"The address is already in use."<<std::endl;
+                CLOSESOCKET(_pNetEx.GetSocket());
+                break;
+            case EADDRNOTAVAIL:
+                std::cerr<<"The address specified is not valid on this host. "<<std::endl;
+                CLOSESOCKET(_pNetEx.GetSocket());
+                break;
+            case EBADF:
+                std::cerr<<"The s parameter is not a valid socket descriptor."<<std::endl;
+                break;
+            case EFAULT:
+                std::cerr<<"Using name and namelen results in an attempt to copy the address into a nonwritable portion of the caller’s address space."<<std::endl;
+                CLOSESOCKET(_pNetEx.GetSocket());
                 break;
         #endif
     }
