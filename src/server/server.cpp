@@ -605,9 +605,9 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 break;
             case WSAEINPROGRESS:
                 std::cerr<<"A blocking Windows Sockets 1.1 operation is in progress."<<std::endl;
-                WSACleanup();
                 if(!INVALIDSOCKET(_pNetEx.GetSocket()))
                     CLOSESOCKET(_pNetEx.GetSoclet());
+                  WSACleanup();
                 break;
             case WSAEPROCLIM:
                 std::cerr<<"A limit on the number of tasks supported by the Windows Sockets implementation has been reached."<<std::endl;
