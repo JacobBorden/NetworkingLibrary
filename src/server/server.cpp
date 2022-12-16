@@ -697,6 +697,18 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 std::cerr<<"An operation was attempted on something that is not a socket."<<std::endl;
                 WSACleanup();
                 break;
+
+                //  listen() error codes
+
+            case WSAEISCONN:
+                std::cerr << "The socket is already connected." << std::endl;
+                break;    
+    
+            case WSAEOPNOTSUPP:
+                std::cerr << "The referenced socket is not of a type that supports the listen operation." << std::endl;
+                 CLOSESOCKET(_pNetEx.GetSocket());
+                WSACleanup();
+                break;
         #else
 
          // socket() error codes
@@ -745,6 +757,10 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
                 break;
             case EFAULT:
                 std::cerr<<"Using name and namelen results in an attempt to copy the address into a nonwritable portion of the caller’s address space."<<std::endl;
+                CLOSESOCKET(_pNetEx.GetSocket());
+                break;
+            case EOPNOTSUPP:
+                std::cerr<<"The s parameter is not a socket descriptor that supports the listen() call."<<std::endl;
                 CLOSESOCKET(_pNetEx.GetSocket());
                 break;
         #endif
