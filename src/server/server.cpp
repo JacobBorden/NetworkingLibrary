@@ -11,6 +11,8 @@ Networking::Server::Server()
         std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
         ErrorHandling(netEx);
     }
+
+
 }
 
 Networking::Server::Server(ServerType _pServerType)
@@ -189,14 +191,18 @@ Networking::ClientConnection Networking::Server::Listen()
 // Create a client connection structure to store information about the client
 Networking::ClientConnection client;
 
+int retries =0;
 // Accept a connection from a client
+while(true)
+{
+try{
 
 if(serverInfo.sin_family == AF_INET)
 {
 int clientAddrSize = sizeof(client.clientInfo);
 client.clientSocket = accept(serverSocket, (sockaddr*)&client.clientInfo, (socklen_t *)&clientAddrSize);
 }
-else if (serverInfo.sin_family == AF_INET)
+else if (serverInfo.sin_family == AF_INET6)
 {
 int clientAddrSize = sizeof(client.clientInfo6);
 client.clientSocket = accept(serverSocket, (sockaddr*)&client.clientInfo6, (socklen_t *)&clientAddrSize);
@@ -212,9 +218,69 @@ if ( INVALIDSOCKET(client.clientSocket))
     WSACleanup();
     #endif
 
+
+    Networking::NetworkException ex(serverSocket, errorCode, "Unable to accept incoming request");
     // Throw the error code
-    throw errorCode;
+    throw ex;
 }
+break;
+}
+
+catch(NetworkException ex)
+{
+
+        std::cerr<<"Exception thrown. "<<ex.what();
+
+    switch (ex.GetErrorCode())
+    {
+    case EBADF:
+        std::cerr<<ex.what()<<std::endl;
+        std::cerr<<"Server socket is  invalid. Shutting down server. "<<std::endl;
+        break;
+    
+    case EINTR:
+        if(retries < 3)
+        {
+            retries++;
+            continue;
+        }
+         std::cerr<<ex.what()<<std::endl;
+        std::cerr<<" "<<std::endl;
+        break;
+    
+    case EINVAL:
+          std::cerr<<ex.what()<<std::endl;
+        std::cerr<<" "<<std::endl;
+        break;
+    
+    case EMFILE:
+          std::cerr<<ex.what()<<std::endl;
+        std::cerr<<". "<<std::endl;
+        break;
+    
+    case ENFILE:
+     std::cerr<<ex.what()<<std::endl;
+        std::cerr<<" "<<std::endl;
+        break;
+
+    case ENOBUFS:
+     std::cerr<<ex.what()<<std::endl;
+        std::cerr<<" "<<std::endl;
+        break;
+
+    case EOPNOTSUPP:
+     std::cerr<<ex.what()<<std::endl;
+        std::cerr<<" "<<std::endl;
+        break;
+
+    default:
+     std::cerr<<ex.what()<<std::endl;
+        std::cerr<<" "<<std::endl;
+        break;
+    }
+}
+}
+
 
 // Add the client connection to the list of clients
 clients.push_back(client);
@@ -702,6 +768,8 @@ void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
 
             case WSAEISCONN:
                 std::cerr << "The socket is already connected." << std::endl;
+                  CLOSESOCKET(_pNetEx.GetSocket());
+                WSACleanup();
                 break;    
     
             case WSAEOPNOTSUPP:
