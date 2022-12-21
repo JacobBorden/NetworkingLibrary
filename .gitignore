@@ -1,2 +1,6 @@
 build/*
 .vscode/*
+*.uncrustify
+uncrustify.cfg
+*.unc-backup.md5~
+*.unc-backup~
