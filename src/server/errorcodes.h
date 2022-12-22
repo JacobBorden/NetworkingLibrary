@@ -15,9 +15,19 @@ namespace Error
 {
 typedef std::unordered_map<int, std::string>  ErrorMap;
 
-static ErrorMap listenMap = {
+static const ErrorMap acceptMap = {
 #ifdef _WIN32
 // Windows specific error messages here
+	{WSAEACCES, "An attempt was made to access a socket in a way forbidden by its access permissions."},
+	{WSAEFAULT, "The system detected an invalid pointer address in attempting to use a pointer argument in a call."},
+	{WSAEINPROGRESS, "A blocking Windows Sockets 1.1 call is in progress, or the service provider is still processing a callback function."},
+	{WSAEINTR, "A blocking Windows Socket 1.1 call was canceled through WSACancelBlockingCall."},
+	{WSAEINVAL, "The listen function was not invoked prior to accept."},
+	{WSAEMFILE, "No more file descriptors are available."},
+	{WSAENOBUFS, "No buffer space is available."},
+	{WSAENOTSOCK, "The descriptor is not a socket."},
+	{WSAEOPNOTSUPP, "The referenced socket is not of a type that supports the accept function."},
+	{WSAEWOULDBLOCK,"The socket is marked as nonblocking and no connections are present to be accepted."}
 #else
 	{EBADF, "The socket parameter is not within the acceptable range for a socket descriptor."},
 	{EINTR, "A signal interrupted the accept() call before any connections were available."},

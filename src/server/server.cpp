@@ -219,64 +219,42 @@ Networking::ClientConnection Networking::Server::Listen()
     #endif
 
 
-				Networking::NetworkException ex(serverSocket, errorCode, "Unable to accept incoming request");
-				// Throw the error code
-				throw ex;
+				Networking::ThrowAcceptException(serverSocket, errorCode);
 			}
 			break;
 		}
 
-		catch(NetworkException ex)
+		catch(NetworkException &ex)
 		{
 
-			std::cerr<<"Exception thrown. "<<ex.what();
 
 			switch (ex.GetErrorCode())
 			{
-			case EBADF:
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<"Server socket is  invalid. Shutting down server. "<<std::endl;
-				break;
+			#ifdef _WIN32
+			case WSAEINTR:
+				if(retries < 3)
+				{
+					retries++;
+					continue;
+				}
+				std::cerr<<"Exception thrown. "<<ex.what();
 
+				return Networking::ClientConnection();
+			#else
 			case EINTR:
 				if(retries < 3)
 				{
 					retries++;
 					continue;
 				}
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<" "<<std::endl;
-				break;
+				std::cerr<<"Exception thrown. "<<ex.what();
 
-			case EINVAL:
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<" "<<std::endl;
-				break;
-
-			case EMFILE:
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<". "<<std::endl;
-				break;
-
-			case ENFILE:
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<" "<<std::endl;
-				break;
-
-			case ENOBUFS:
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<" "<<std::endl;
-				break;
-
-			case EOPNOTSUPP:
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<" "<<std::endl;
-				break;
-
+				return Networking::ClientConnection();
+			#endif
 			default:
-				std::cerr<<ex.what()<<std::endl;
-				std::cerr<<" "<<std::endl;
-				break;
+				std::cerr<<"Exception thrown. "<<ex.what();
+
+				return Networking::ClientConnection();
 			}
 		}
 	}

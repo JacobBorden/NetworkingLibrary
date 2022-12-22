@@ -35,14 +35,16 @@ typedef const char* PCSTR;
 #include <string>
 #include <vector>
 #include "networkexception.h"
+#include "errorcodes.h"
+
+
+namespace Networking {
 
 enum ServerType
 {
 	IPv4,
 	IPv6
 };
-
-namespace Networking {
 
 // Struct to hold information about a connected client
 struct ClientConnection {
