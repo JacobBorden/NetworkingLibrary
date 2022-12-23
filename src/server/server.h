@@ -31,6 +31,12 @@
 typedef const char* PCSTR;
 #endif
 #endif
+#ifndef MAX_RETRIES
+#define MAX_RETRIES 3
+#endif
+#ifndef RETRY_DELAY
+#define RETRY_DELAY 5
+#endif
 #include <iostream>
 #include <string>
 #include <vector>
@@ -66,8 +72,6 @@ Server(int _pPortNumber, ServerType _pServerType);
 // Initializes the server
 bool InitServer();
 
-// Creates a socket for the server using the specified port number
-bool CreateServerSocket(int _pPortNumber);
 
 //Creates a socket for the server using the specified port number and server type
 bool CreateServerSocket(int _pPortNumber, ServerType _pServerType);

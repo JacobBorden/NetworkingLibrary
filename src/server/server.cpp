@@ -3,15 +3,10 @@
 
 Networking::Server::Server(int _pPortNumber = 8080,  ServerType _pServerType = ServerType::IPv4)
 {
-	try{
-		Networking::Server::InitServer();
-		Networking::Server::CreateServerSocket(_pPortNumber, _pServerType);
-	}
-	catch(NetworkException netEx)
-	{
-		std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
-		ErrorHandling(netEx);
-	}
+
+	Networking::Server::InitServer();
+	Networking::Server::CreateServerSocket(_pPortNumber, _pServerType);
+
 }
 
 
@@ -22,7 +17,7 @@ Networking::Server::~Server()
 bool Networking::Server::InitServer()
 {
     #ifdef _WIN32
-	int erroCode = WSAStartup(VERSIONREQUESTED, wsaData);
+	int errorCode = WSAStartup(VERSIONREQUESTED, wsaData);
 	if(errorCode)
 	{
 		Networking::NetworkException netEx(-1, errorCode, "Unable to Initilize Server");
@@ -69,15 +64,67 @@ bool Networking::Server::CreateServerSocket(int _pPortNumber,  ServerType _pServ
 
 void Networking::Server::CreateSocket()
 {
-	// Create the socket
-	serverSocket = socket(serverInfo.sin_family, SOCK_STREAM, IPPROTO_TCP);
-	// Check for errors
-	if (INVALIDSOCKET(serverSocket))
+
+	static int retries =0;
+	try
 	{
-		// Get the error code
-		int errorCode = GETERROR();
-		// Throw an exception
-		ThrowSocketException(serverSocket, errorCode);
+		// Create the socket
+		serverSocket = socket(serverInfo.sin_family, SOCK_STREAM, IPPROTO_TCP);
+		// Check for errors
+		if (INVALIDSOCKET(serverSocket))
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+			// Throw an exception
+			ThrowSocketException(serverSocket, errorCode);
+		}
+		retries =0;
+	}
+
+	catch(Networking::NetworkException &ex)
+	{
+		switch (ex.GetErrorCode())
+		{
+		case EACCES:
+			std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+			std::cerr<<"The process does not have permission to create a socket of the specified type or protocol."<<std::endl;
+			std::exit(EXIT_FAILURE);
+
+		case EAFNOSUPPORT:
+			std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+			std::cerr<<"The implementation does not support the specified address family."<<std::endl;
+			std::exit(EXIT_FAILURE);
+
+		case EADDRINUSE:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				CreateSocket();
+			}
+
+			else
+			{
+				std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+		case EINTR:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				CreateSocket();
+			}
+
+			else
+			{
+				std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+		default:
+			std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+			std::exit(EXIT_FAILURE);
+		}
 	}
 }
 
@@ -110,74 +157,67 @@ Networking::ClientConnection Networking::Server::Accept()
 // Create a client connection structure to store information about the client
 	Networking::ClientConnection client;
 
-	int retries =0;
+	static int retries =0;
 // Accept a connection from a client
-	while(true)
-	{
-		try{
 
-			if(serverInfo.sin_family == AF_INET)
-			{
-				int clientAddrSize = sizeof(client.clientInfo);
-				client.clientSocket = accept(serverSocket, (sockaddr*)&client.clientInfo, (socklen_t *)&clientAddrSize);
-			}
-			else if (serverInfo.sin_family == AF_INET6)
-			{
-				int clientAddrSize = sizeof(client.clientInfo6);
-				client.clientSocket = accept(serverSocket, (sockaddr*)&client.clientInfo6, (socklen_t *)&clientAddrSize);
-			}
-// If there was an error, throw an exception
-			if ( INVALIDSOCKET(client.clientSocket))
-			{
-				// Get the error code
-				int errorCode = GETERROR();
+	try{
 
-    #ifdef _WIN32
-				// Clean up the Windows Sockets DLL
-				WSACleanup();
-    #endif
-
-
-				Networking::ThrowAcceptException(serverSocket, errorCode);
-			}
-			break;
-		}
-
-		catch(NetworkException &ex)
+		if(serverInfo.sin_family == AF_INET)
 		{
-
-
-			switch (ex.GetErrorCode())
-			{
-			#ifdef _WIN32
-			case WSAEINTR:
-				if(retries < 3)
-				{
-					retries++;
-					continue;
-				}
-				std::cerr<<"Exception thrown. "<<ex.what();
-
-				return Networking::ClientConnection();
-			#else
-			case EINTR:
-				if(retries < 3)
-				{
-					retries++;
-					continue;
-				}
-				std::cerr<<"Exception thrown. "<<ex.what();
-
-				return Networking::ClientConnection();
-			#endif
-			default:
-				std::cerr<<"Exception thrown. "<<ex.what();
-
-				return Networking::ClientConnection();
-			}
+			int clientAddrSize = sizeof(client.clientInfo);
+			client.clientSocket = accept(serverSocket, (sockaddr*)&client.clientInfo, (socklen_t *)&clientAddrSize);
 		}
+		else if (serverInfo.sin_family == AF_INET6)
+		{
+			int clientAddrSize = sizeof(client.clientInfo6);
+			client.clientSocket = accept(serverSocket, (sockaddr*)&client.clientInfo6, (socklen_t *)&clientAddrSize);
+		}
+// If there was an error, throw an exception
+		if ( INVALIDSOCKET(client.clientSocket))
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+			Networking::ThrowAcceptException(serverSocket, errorCode);
+		}
+		retries = 0;
 	}
 
+	catch(NetworkException &ex)
+	{
+		switch (ex.GetErrorCode())
+		{
+			#ifdef _WIN32
+
+		case WSAEINTR:
+			if(retries <MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				Accept();
+			}
+			std::cerr<<"Exception thrown. "<<ex.what();
+			return Networking::ClientConnection();
+
+			#else
+
+		case EINTR:
+			if(retries <  MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				Accept();
+			}
+
+			std::cerr<<"Exception thrown. "<<ex.what();
+			return Networking::ClientConnection();
+
+			#endif
+
+		default:
+			std::cerr<<"Exception thrown. "<<ex.what();
+			return Networking::ClientConnection();
+		}
+	}
 
 // Add the client connection to the list of clients
 	clients.push_back(client);
@@ -554,180 +594,3 @@ std::vector<Networking::ClientConnection> Networking::Server::getClients() const
 	return clients;
 }
 
-//Handles Errors
-
-void Networking::Server::ErrorHandling(Networking::NetworkException _pNetEx)
-{
-	switch(_pNetEx.GetErrorCode()) {
-	#ifdef _WIN32
-
-	// WSAStartup() error codes
-
-	case WSASYSNOTREADY:
-		std::cerr<<"The underlying network subsystem is not ready for network communication."<<std::endl;
-		break;
-	case WSAVERNOTSUPPORTED:
-		std::cerr<<"The version of Windows Sockets support requested is not provided by this particular Windows Sockets implementation."<<std::endl;
-		break;
-	case WSAEINPROGRESS:
-		std::cerr<<"A blocking Windows Sockets 1.1 operation is in progress."<<std::endl;
-		if(!INVALIDSOCKET(_pNetEx.GetSocket()))
-			CLOSESOCKET(_pNetEx.GetSoclet());
-		WSACleanup();
-		break;
-	case WSAEPROCLIM:
-		std::cerr<<"A limit on the number of tasks supported by the Windows Sockets implementation has been reached."<<std::endl;
-		break;
-	case WSAEFAULT:
-		std::cerr<<"The system detected an invalid pointer address in attempting to use a pointer argument in a call."<<std::endl;
-		if(!INVALIDSOCKET(_pNetEx.GetSocket()))
-			CLOSESOCKET(_pNetEx.GetSoclet());
-		WSACleanup();
-		break;
-	case WSANOTINITIALISED:
-		std::cerr<<"A successful WSAStartup call must occur before using this function."<<std::endl;
-		break;
-
-	// socket() error codes
-
-	case WSAENETDOWN:
-		std::cerr<<"The network subsystem or the associated service provider has failed."<<std::endl;
-		WSACleanup();
-		break;
-	case WSAEAFNOSUPPORT:
-		std::cerr<<"The specified address family is not supported. For example, an application tried to create a socket for the AF_IRDA address family but an infrared adapter and device driver is not installed on the local computer."<<std::endl;
-		WSACleanup();
-		break;
-	case WSAEMFILE:
-		std::cerr<<"No more socket descriptors are available."<<std::endl;
-		WSACleanup();
-		break;
-	case WSAINVAL:
-		std::cerr<<"An invalid argument was supplied. This error is returned if the af parameter is set to AF_UNSPEC and the type and protocol parameter are unspecified."<<std::endl;
-		if(!INVALIDSOCKET(_pNetEx.GetSocket()))
-			CLOSESOCKET(_pNetEx.GetSoclet());
-		WSACleanup();
-		break;
-	case WSAEINVALIDPROVIDER:
-		std::cerr<<"The service provider returned a version other than 2.2."<<std::endl;
-		WSACleanup();
-		break;
-	case WSAEINVALIDPROCTABLE:
-		std::cerr<<"The service provider returned an invalid or incomplete procedure table to the WSPStartup."<<std::endl;
-		WSACleanup();
-		break;
-	case WSAENOBUFS:
-		std::cerr<<"No buffer space is available."<<std::endl;
-		if(!INVALIDSOCKET(_pNetEx.GetSocket()))
-			CLOSESOCKET(_pNetEx.GetSoclet());
-		WSACleanup();
-		break;
-	case WSAEPROTONOSUPPORT:
-		std::cerr<<"he specified protocol is not supported."<<std::endl;
-		WSACleanup();
-		break;
-	case WSAEPROTOTYPE:
-		std::cerr<<"he specified protocol is the wrong type for this socket."<<std:endl;
-		WSACleanup();
-		break;
-	case WSAEPROVIDERFAILEDINIT:
-		std::cerr<<"The service provider failed to initialize. This error is returned if a layered service provider (LSP) or namespace provider was improperly installed or the provider fails to operate correctly."<<std::endl;
-		WSACleanup();
-		break;
-	case WSAESOCKTNOSUPPORT:
-		std::cerr<<"The specified socket type is not supported in this address family."<<std::endl;
-		WSACleanup();
-		break;
-
-	// bind() error codes
-
-	case WSAEACCES:
-		std::cerr<<"An attempt was made to access a socket in a way forbidden by its access permissions."<<std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		WSACleanup();
-		break;
-	case WSAEADDRINUSE:
-		std::cerr<<"Only one usage of each socket address (protocol/network address/port) is normally permitted."<<std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		WSACleanup();
-		break;
-	case WSAEADDRNOTAVAIL:
-		std::cerr<<"The requested address is not valid in its context"<<std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		WSACleanup();
-		break;
-	case WSAENOTSOCK:
-		std::cerr<<"An operation was attempted on something that is not a socket."<<std::endl;
-		WSACleanup();
-		break;
-
-	//  listen() error codes
-
-	case WSAEISCONN:
-		std::cerr << "The socket is already connected." << std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		WSACleanup();
-		break;
-
-	case WSAEOPNOTSUPP:
-		std::cerr << "The referenced socket is not of a type that supports the listen operation." << std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		WSACleanup();
-		break;
-	#else
-
-	// socket() error codes
-
-	case EACCES:
-		std::cerr<<"The process does not have the required privileges to create a socket."<<std::endl;
-		break;
-	case EAFNOSUPPORT:
-		std::cerr<<"The specified address domain is not supported."<<std::endl;
-		if(!INVALIDSOCKET(_pNetEx.GetSocket()))
-			CLOSESOCKET(_pNetEx.GetSocket());
-		break;
-	case EINVAL:
-		std::cerr<<"The specified address domain, socket type, or protocol is invalid."<<std::endl;
-		if(!INVALIDSOCKET(_pNetEx.GetSocket()))
-			CLOSESOCKET(_pNetEx.GetSocket());
-		break;
-	case EMFILE:
-		std::cerr<<"The process has reached its limit for the number of open file descriptors."<<std::endl;
-		break;
-	case ENFILE:
-		std::cerr<<"The system has reached its limit for the total number of open files."<<std::endl;
-		break;
-	case ENOBUFS:
-		std::cerr<<"There is not enough memory available to create a new socket."<<std::endl;
-		break;
-	case ENOMEM:
-		std::cerr<<"There is not enough memory available to create a new socket."<<std::endl;
-		break;
-	case EPROTONOSUPPORT:
-		std::cerr<<"The specified protocol is not supported."<<std::endl;
-		break;
-
-	// bind() error codes
-
-	case EADDRINUSE:
-		std::cerr<<"The address is already in use."<<std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		break;
-	case EADDRNOTAVAIL:
-		std::cerr<<"The address specified is not valid on this host. "<<std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		break;
-	case EBADF:
-		std::cerr<<"The s parameter is not a valid socket descriptor."<<std::endl;
-		break;
-	case EFAULT:
-		std::cerr<<"Using name and namelen results in an attempt to copy the address into a nonwritable portion of the caller’s address space."<<std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		break;
-	case EOPNOTSUPP:
-		std::cerr<<"The s parameter is not a socket descriptor that supports the listen() call."<<std::endl;
-		CLOSESOCKET(_pNetEx.GetSocket());
-		break;
-	#endif
-	}
-}

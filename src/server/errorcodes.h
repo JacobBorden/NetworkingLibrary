@@ -15,7 +15,7 @@ namespace Error
 {
 typedef std::unordered_map<int, std::string>  ErrorMap;
 
-static const ErrorMap socketMap = {
+const ErrorMap socketMap = {
     #ifdef _WIN32
 	// Windows specific error messages here
 	{WSAEACCES, "An attempt was made to create a socket with an illegal address."},
@@ -37,7 +37,7 @@ static const ErrorMap socketMap = {
     #endif
 };
 
-static const ErrorMap bindMap= {
+const ErrorMap bindMap= {
 #ifdef _WIN32
 // Windows specific error messages here
 	{WSAEACCES, "An attempt was made to access a socket in a way forbidden by its access permissions."},
@@ -63,7 +63,7 @@ static const ErrorMap bindMap= {
 #endif
 };
 
-static const ErrorMap listenMap= {
+const ErrorMap listenMap= {
 #ifdef _WIN32
 // Windows specific error messages here
 	{WSAEADDRINUSE, "The socket's local address is already in use and the socket was not marked to allow address reuse with SO_REUSEADDR. This error usually occurs during execution of the bind function, but could be delayed until this function if the bind was to a partially wildcard address (involving ADDR_ANY) and if a specific address needs to be committed at the time of this function."},
@@ -83,7 +83,7 @@ static const ErrorMap listenMap= {
 };
 
 
-static const ErrorMap acceptMap = {
+const ErrorMap acceptMap = {
 #ifdef _WIN32
 // Windows specific error messages here
 	{WSAEACCES, "An attempt was made to access a socket in a way forbidden by its access permissions."},
