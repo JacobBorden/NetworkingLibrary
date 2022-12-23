@@ -15,6 +15,74 @@ namespace Error
 {
 typedef std::unordered_map<int, std::string>  ErrorMap;
 
+static const ErrorMap socketMap = {
+    #ifdef _WIN32
+	// Windows specific error messages here
+	{WSAEACCES, "An attempt was made to create a socket with an illegal address."},
+	{WSAEAFNOSUPPORT, "An address incompatible with the requested protocol was used."},
+	{WSAEMFILE, "No more file descriptors are available."},
+	{WSAENOBUFS, "No buffer space is available."},
+	{WSAEPROTONOSUPPORT, "The specified protocol is not supported."},
+	{WSAEPROTOTYPE, "The specified protocol is the wrong type for this socket."},
+	{WSAESOCKTNOSUPPORT, "The specified socket type is not supported in this address family."},
+    #else
+	// Linux/Unix specific error messages here
+	{EACCES, "Permission to create a socket of the specified type and/or protocol is denied."},
+	{EAFNOSUPPORT, "The implementation does not support the specified address family."},
+	{EINVAL, "Unknown protocol, or protocol family not available."},
+	{EMFILE, "The process file descriptor table is full."},
+	{ENFILE, "The system file descriptor table is full."},
+	{ENOBUFS, "Insufficient resources were available to complete the call."},
+	{EPROTONOSUPPORT, "The protocol is not supported by the address family, or the protocol is not supported by the implementation."},
+    #endif
+};
+
+static const ErrorMap bindMap= {
+#ifdef _WIN32
+// Windows specific error messages here
+	{WSAEACCES, "An attempt was made to access a socket in a way forbidden by its access permissions."},
+	{WSAEADDRINUSE, "A process on the computer is already bound to the same fully-qualified address and the socket has not been marked to allow address reuse with SO_REUSEADDR."},
+	{WSAEADDRNOTAVAIL, "The requested address is not valid in its context."},
+	{WSAEFAULT, "The system detected an invalid pointer address in attempting to use a pointer argument in a call."},
+	{WSAEINVAL, "An invalid argument was supplied."},
+	{WSAENOBUFS, "No buffer space is available."},
+	{WSAENOTSOCK, "The descriptor is not a socket."},
+	{WSAEOPNOTSUPP, "The referenced socket is not of a type that supports the bind function."},
+	{WSAEINPROGRESS, "A blocking Windows Sockets 1.1 call is in progress, or the service provider is still processing a callback function."},
+#else
+// Linux/Unix specific error messages here
+	{EACCES, "The address is protected and the user is not the superuser."},
+	{EADDRINUSE, "The given address is already in use."},
+	{EADDRNOTAVAIL, "The specified address is not available from the local machine."},
+	{EFAULT, "The name or namelen parameter is not a valid part of the user address space."},
+	{EINVAL, "The socket is already bound to an address."},
+	{ENOBUFS, "Insufficient resources were available in the system to complete the call."},
+	{ENOMEM, "Insufficient memory was available to fulfill the request."},
+	{ENOTSOCK, "The socket argument does not refer to a socket."},
+	{EROFS, "The socket inode would reside on a read-only file system."}
+#endif
+};
+
+static const ErrorMap listenMap= {
+#ifdef _WIN32
+// Windows specific error messages here
+	{WSAEADDRINUSE, "The socket's local address is already in use and the socket was not marked to allow address reuse with SO_REUSEADDR. This error usually occurs during execution of the bind function, but could be delayed until this function if the bind was to a partially wildcard address (involving ADDR_ANY) and if a specific address needs to be committed at the time of this function."},
+	{WSAEINPROGRESS, "A blocking Windows Sockets 1.1 call is in progress, or the service provider is still processing a callback function."},
+	{WSAEINVAL, "The socket has not been bound with bind, or an unknown flag was specified, or MSG_OOB was specified for a socket with SO_OOBINLINE enabled."},
+	{WSAENOBUFS, "Not enough buffers available, too many connections."},
+	{WSAENOTSOCK, "The descriptor is not a socket."}
+#else
+// Linux specific error messages here
+	{EADDRINUSE, "The address is already in use."},
+	{EBADF, "The socket is not a valid file descriptor."},
+	{EINVAL, "The socket is already bound to an address, or the protocol is not TCP."},
+	{ENOTSOCK, "The file descriptor is not associated with a socket."},
+	{EOPNOTSUPP, "The socket is not of a type that supports the listen operation."},
+	{EACCES, "The process does not have the appropriate privileges to listen on the specified port."}
+#endif
+};
+
+
 static const ErrorMap acceptMap = {
 #ifdef _WIN32
 // Windows specific error messages here
@@ -39,7 +107,9 @@ static const ErrorMap acceptMap = {
 #endif
 };
 }
-
+void ThrowSocketException(int socket, int errorCode);
+void ThrowBindException(int socket, int errorCode);
+void ThrowListenException(int socket, int errorCode);
 void ThrowAcceptException(int socket, int errorCode);
 
 }

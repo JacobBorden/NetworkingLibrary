@@ -56,14 +56,6 @@ struct ClientConnection {
 
 class Server {
 public:
-// Default constructor
-Server();
-
-// Constructor that takes in a port number
-Server(int _pPortNumber);
-
-//Constructor thst takes in a server type
-Server(ServerType _pServerType);
 
 //Constructor that takes in a port number and a server type
 Server(int _pPortNumber, ServerType _pServerType);
@@ -80,9 +72,13 @@ bool CreateServerSocket(int _pPortNumber);
 //Creates a socket for the server using the specified port number and server type
 bool CreateServerSocket(int _pPortNumber, ServerType _pServerType);
 
+void CreateSocket();
+void BindSocket();
+void ListenOnSocket();
+
 // Listens for incoming client connections and returns a
 // Networking::ClientConnection object representing the connected client
-Networking::ClientConnection Listen();
+Networking::ClientConnection Accept();
 
 // Sets the socket type
 void SetSocketType(int _pSockType);

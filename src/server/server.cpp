@@ -1,34 +1,7 @@
 #include "server.h"
 
-Networking::Server::Server()
-{
-	try{
-		Networking::Server::InitServer();
-		Networking::Server::CreateServerSocket(8080);
-	}
-	catch(NetworkException netEx)
-	{
-		std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
-		ErrorHandling(netEx);
-	}
 
-
-}
-
-Networking::Server::Server(ServerType _pServerType)
-{
-	try{
-		Networking::Server::InitServer();
-		Networking::Server::CreateServerSocket(8080, _pServerType);
-	}
-	catch(NetworkException netEx)
-	{
-		std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
-		ErrorHandling(netEx);
-	}
-}
-
-Networking::Server::Server(int _pPortNumber,  ServerType _pServerType)
+Networking::Server::Server(int _pPortNumber = 8080,  ServerType _pServerType = ServerType::IPv4)
 {
 	try{
 		Networking::Server::InitServer();
@@ -41,18 +14,6 @@ Networking::Server::Server(int _pPortNumber,  ServerType _pServerType)
 	}
 }
 
-Networking::Server::Server(int _pPortNumber)
-{
-	try{
-		Networking::Server::InitServer();
-		Networking::Server::CreateServerSocket(_pPortNumber);
-	}
-	catch(NetworkException netEx)
-	{
-		std::cerr<<"Exception thrown.  "<<netEx.what() <<std::endl;
-		ErrorHandling(netEx);
-	}
-}
 
 Networking::Server::~Server()
 {
@@ -72,81 +33,19 @@ bool Networking::Server::InitServer()
 	return true;
 }
 
-bool Networking::Server::CreateServerSocket(int _pPortNumber)
-{
-	ZeroMemory(&addressInfo, sizeof(addressInfo));
-	SetFamily(AF_INET);
-	SetSocketType(SOCK_STREAM);
-	SetProtocol(IPPROTO_TCP);
 
-// Create a server socket
-	serverSocket = socket(addressInfo.ai_family, addressInfo.ai_socktype, addressInfo.ai_protocol);
-
-// Check if the socket was successfully created
-	if (INVALIDSOCKET(serverSocket))
-	{
-		int errorCode = GETERROR();
-		Networking::NetworkException netEx(serverSocket, errorCode, "Unable to create socket");
-		throw netEx;
-	}
-
-// Set up the sockaddr_in structure
-	serverInfo.sin_family = addressInfo.ai_family;
-	serverInfo.sin_addr.s_addr = INADDR_ANY;
-	serverInfo.sin_port = htons(_pPortNumber);
-
-// Bind the server socket to a port
-	int bindResult = bind(serverSocket, (sockaddr*)&serverInfo, sizeof(serverInfo));
-
-// Check if the socket was successfully bound
-	if (bindResult == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
-		Networking::NetworkException netEx(serverSocket, errorCode, "Unable to bind socket");
-		throw netEx;
-
-	}
-
-// Start listening for incoming connections
-	int listenResult = listen(serverSocket, SOMAXCONN);
-
-// Check if the socket is listening
-	if (listenResult == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
-		Networking::NetworkException netEx(serverSocket, errorCode, "Unable to listen to socket");
-		throw netEx;
-
-	}
-
-	serverIsConnected = true;
-// The server socket was created successfully
-	return true;
-
-}
 
 
 bool Networking::Server::CreateServerSocket(int _pPortNumber,  ServerType _pServerType)
 {
 	// Set the address family based on the server type
-	int addressFamily = _pServerType == IPv4 ? AF_INET : AF_INET6;
+	int addressFamily = _pServerType == ServerType::IPv4 ? AF_INET : AF_INET6;
 	ZeroMemory(&addressInfo, sizeof(addressInfo));
 	SetFamily(addressFamily);
 	SetSocketType(SOCK_STREAM);
 	SetProtocol(IPPROTO_TCP);
 
-// Create a server socket
-	serverSocket = socket(addressInfo.ai_family, addressInfo.ai_socktype, addressInfo.ai_protocol);
-
-// Check if the socket was successfully created
-	if (INVALIDSOCKET(serverSocket))
-	{
-		int errorCode = GETERROR();
-		Networking::NetworkException netEx(serverSocket, errorCode, "Unable to create socket");
-		throw netEx;
-	}
+	CreateSocket();
 
 // Set up the sockaddr_in structure
 	serverInfo.sin_family = addressInfo.ai_family;
@@ -154,30 +53,10 @@ bool Networking::Server::CreateServerSocket(int _pPortNumber,  ServerType _pServ
 	serverInfo.sin_port = htons(_pPortNumber);
 
 // Bind the server socket to a port
-	int bindResult = bind(serverSocket, (sockaddr*)&serverInfo, sizeof(serverInfo));
-
-// Check if the socket was successfully bound
-	if (bindResult == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
-		Networking::NetworkException netEx(serverSocket, errorCode, "Unable to bind socket");
-		throw netEx;
-
-	}
+	BindSocket();
 
 // Start listening for incoming connections
-	int listenResult = listen(serverSocket, SOMAXCONN);
-
-// Check if the socket is listening
-	if (listenResult == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
-		Networking::NetworkException netEx(serverSocket, errorCode, "Unable to listen to socket");
-		throw netEx;
-
-	}
+	ListenOnSocket();
 
 	serverIsConnected = true;
 // The server socket was created successfully
@@ -186,7 +65,47 @@ bool Networking::Server::CreateServerSocket(int _pPortNumber,  ServerType _pServ
 
 }
 
-Networking::ClientConnection Networking::Server::Listen()
+
+
+void Networking::Server::CreateSocket()
+{
+	// Create the socket
+	serverSocket = socket(serverInfo.sin_family, SOCK_STREAM, IPPROTO_TCP);
+	// Check for errors
+	if (INVALIDSOCKET(serverSocket))
+	{
+		// Get the error code
+		int errorCode = GETERROR();
+		// Throw an exception
+		ThrowSocketException(serverSocket, errorCode);
+	}
+}
+
+void Networking::Server::BindSocket()
+{
+	// Bind the socket to a local address and port
+	if (bind(serverSocket, (sockaddr*)&serverInfo, sizeof(serverInfo)) == SOCKET_ERROR)
+	{
+		// Get the error code
+		int errorCode = GETERROR();
+		// Throw an exception
+		ThrowBindException(serverSocket, errorCode);
+	}
+}
+
+void Networking::Server::ListenOnSocket()
+{
+	// Start listening for incoming connections
+	if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
+	{
+		// Get the error code
+		int errorCode = GETERROR();
+		// Throw an exception
+		ThrowListenException(serverSocket, errorCode);
+	}
+}
+
+Networking::ClientConnection Networking::Server::Accept()
 {
 // Create a client connection structure to store information about the client
 	Networking::ClientConnection client;
