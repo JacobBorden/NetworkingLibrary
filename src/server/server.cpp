@@ -181,13 +181,37 @@ void Networking::Server::BindSocket()
 
 void Networking::Server::ListenOnSocket()
 {
-	// Start listening for incoming connections
-	if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
+	static int retries =0;
+	try{
+		// Start listening for incoming connections
+		if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR)
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+			// Throw an exception
+			ThrowListenException(serverSocket, errorCode);
+		}
+		retries =0;
+	}
+	catch (Networking::NetworkException &ex)
 	{
-		// Get the error code
-		int errorCode = GETERROR();
-		// Throw an exception
-		ThrowListenException(serverSocket, errorCode);
+		switch(ex.GetErrorCode())
+		{
+		case EADDRINUSE:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				ListenOnSocket();
+			}
+			else{
+				std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+		default:
+			std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+			std::exit(EXIT_FAILURE);
+		}
 	}
 }
 
