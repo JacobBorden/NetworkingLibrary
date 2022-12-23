@@ -130,13 +130,52 @@ void Networking::Server::CreateSocket()
 
 void Networking::Server::BindSocket()
 {
+	static int retries=0;
 	// Bind the socket to a local address and port
-	if (bind(serverSocket, (sockaddr*)&serverInfo, sizeof(serverInfo)) == SOCKET_ERROR)
+	try{
+		if (bind(serverSocket, (sockaddr*)&serverInfo, sizeof(serverInfo)) == SOCKET_ERROR)
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+			// Throw an exception
+			ThrowBindException(serverSocket, errorCode);
+		}
+		retries = 0;
+	}
+	catch(Networking::NetworkException &ex)
 	{
-		// Get the error code
-		int errorCode = GETERROR();
-		// Throw an exception
-		ThrowBindException(serverSocket, errorCode);
+		switch(ex.GetErrorCode())
+		{
+		case EADDRINUSE:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				BindSocket();
+			}
+			else
+			{
+				std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+		case EADDRNOTAVAIL:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				BindSocket();
+			}
+			else
+			{
+				std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+
+		default:
+			std::cerr<<"Exception thrown "<<ex.what()<<std::endl;
+			std::exit(EXIT_FAILURE);
+		}
+
 	}
 }
 
