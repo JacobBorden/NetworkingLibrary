@@ -17,12 +17,21 @@ Networking::Server::~Server()
 bool Networking::Server::InitServer()
 {
     #ifdef _WIN32
-	int errorCode = WSAStartup(VERSIONREQUESTED, wsaData);
-	if(errorCode)
+	try
 	{
-		Networking::NetworkException netEx(-1, errorCode, "Unable to Initilize Server");
-		throw netEx;
+		int errorCode = WSAStartup(VERSIONREQUESTED, wsaData);
+		if(errorCode)
+		{
+			Networking::NetworkException netEx(-1, errorCode, "Unable to Initilize Server");
+			throw netEx;
+		}
 	}
+	catch(Networking::NetworkException &ex)
+	{
+		std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+		std::exit(EXIT_FAILURE);
+	}
+
    #endif
 
 	return true;
