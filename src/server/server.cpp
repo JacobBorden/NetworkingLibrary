@@ -349,6 +349,7 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 			}
 			else
 			{
+				std::cerr<<"Exception thrown. "<<ex.what();
 				DisconnectClient(_pClient);
 				break;
 			}
@@ -362,6 +363,7 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 			}
 			else
 			{
+				std::cerr<<"Exception thrown. "<<ex.what();
 				DisconnectClient(_pClient);
 				break;
 			}
@@ -375,11 +377,13 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 			}
 			else
 			{
+				std::cerr<<"Exception thrown. "<<ex.what();
 				DisconnectClient(_pClient);
 				break;
 			}
 
 		default:
+			std::cerr<<"Exception thrown. "<<ex.what();
 			DisconnectClient(_pClient);
 			break;
 
@@ -394,6 +398,8 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 // Send data to a specified address and port
 int Networking::Server::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
 {
+	static int retries=0;
+	int bytesSent=0;
 	// Create a sockaddr_in structure to hold the address and port of the recipient
 	sockaddr_storage sockAddress;
 	ZeroMemory(&sockAddress, sizeof(sockAddress));
@@ -419,25 +425,70 @@ int Networking::Server::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
 		inet_pton(serverInfo.sin_family, _pAddress, &recipient->sin6_addr);
 	}
 
-	// Send the data to the specified recipient
-	int bytesSent = sendto(serverSocket, _pBuffer, strlen(_pBuffer), 0, (sockaddr*)&sockAddress, sizeof(sockAddress));
+	try{
+		// Send the data to the specified recipient
+		bytesSent = sendto(serverSocket, _pBuffer, strlen(_pBuffer), 0, (sockaddr*)&sockAddress, sizeof(sockAddress));
 
-	// If there was an error, throw an exception
-	if(bytesSent == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
+		// If there was an error, throw an exception
+		if(bytesSent == SOCKET_ERROR)
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+			ThrowSendException(serverSocket, errorCode);
+		}
 
-		// Close the socket
-		CLOSESOCKET(serverSocket);
-	#ifdef _WIN32
-		// Clean up the Windows Sockets DLL
-		WSACleanup();
-	#endif
-		// Throw the error code
-		throw errorCode;
+		retries = 0;
 	}
 
+	catch(Networking::NetworkException &ex)
+	{
+		switch(ex.GetErrorCode())
+		{
+		case EAGAIN:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				SendTo(_pBuffer, _pAddress, _pPort);
+			}
+			else
+			{
+				std::cerr<<"Exception thrown. "<<ex.what();
+				break;
+			}
+
+		case EINTR:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				SendTo(_pBuffer, _pAddress, _pPort);
+			}
+			else
+			{
+				std::cerr<<"Exception thrown. "<<ex.what();
+				break;
+			}
+
+		case EINPROGRESS:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				SendTo(_pBuffer, _pAddress, _pPort);
+			}
+			else
+			{
+				std::cerr<<"Exception thrown. "<<ex.what();
+				break;
+			}
+
+		default:
+			std::cerr<<"Exception thrown. "<<ex.what();
+			break;
+
+		}
+	}
 	// Return  the number of bytes sent if the data was sent successfully
 	return bytesSent;
 }
