@@ -316,23 +316,75 @@ void Networking::Server::SetFamily(int _pFamily)
 // Send data to the client
 int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _pClient)
 {
-	// Send the data to the client
-	int bytesSent = send(_pClient.clientSocket,_pSendBuffer, strlen(_pSendBuffer),0 );
+	static int retries =0;
+	int bytesSent;
+	try{
 
-	// If there was an error, throw an exception
-	if(bytesSent ==SOCKET_ERROR)
+		// Send the data to the client
+		bytesSent = send(_pClient.clientSocket,_pSendBuffer, strlen(_pSendBuffer),0 );
+
+		// If there was an error, throw an exception
+		if(bytesSent == SOCKET_ERROR)
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+
+			// Throw the error code
+			Networking::ThrowSendException(_pClient.clientSocket, errorCode);
+
+		}
+		retries =0;
+	}
+
+	catch (Networking::NetworkException &ex)
 	{
-		// Get the error code
-		int errorCode = GETERROR();
+		switch(ex.GetErrorCode())
+		{
+		case EAGAIN:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				Send(_pSendBuffer, _pClient);
+			}
+			else
+			{
+				DisconnectClient(_pClient);
+				break;
+			}
 
-		// Close the socket
-		CLOSESOCKET(_pClient.clientSocket);
-	#ifdef _WIN32
-		// Clean up the Windows Sockets DLL
-		WSACleanup();
-	#endif
-		// Throw the error code
-		throw errorCode;
+		case EINTR:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				Send(_pSendBuffer, _pClient);
+			}
+			else
+			{
+				DisconnectClient(_pClient);
+				break;
+			}
+
+		case EINPROGRESS:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+				Send(_pSendBuffer, _pClient);
+			}
+			else
+			{
+				DisconnectClient(_pClient);
+				break;
+			}
+
+		default:
+			DisconnectClient(_pClient);
+			break;
+
+		}
+
 	}
 
 	// Return  the number of bytes sent if the data was sent successfully

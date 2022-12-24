@@ -106,11 +106,20 @@ const ErrorMap acceptMap = {
 	{EOPNOTSUPP, "The socket type of the specified socket does not support accepting connections."}
 #endif
 };
+const ErrorMap sendMap = {
+	{ EAGAIN, "Resource temporarily unavailable" },
+	{ ECONNRESET, "Connection reset by peer" },
+	{ EDESTADDRREQ, "Destination address required" },
+	{ EMSGSIZE, "Message too long" },
+	{ ENOTCONN, "Transport endpoint is not connected" },
+	{ EPIPE, "Broken pipe" },
+	{ EWOULDBLOCK, "Operation would block" }
+};
 }
 void ThrowSocketException(int socket, int errorCode);
 void ThrowBindException(int socket, int errorCode);
 void ThrowListenException(int socket, int errorCode);
 void ThrowAcceptException(int socket, int errorCode);
-
+void ThrowSendException(int socket, int errorCode);
 }
 #endif
