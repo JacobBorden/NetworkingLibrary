@@ -502,25 +502,80 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 	// Iterate over all connected clients
 	for (auto client : clients)
 	{
-		// Send the data to the current client
-		bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
-
-		// If there was an error, throw an exception
-		if (bytesSent == SOCKET_ERROR)
+		try
 		{
-			// Get the error code
-			int errorCode = GETERROR();
+			// Send the data to the current client
+			bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
 
-			// Close the socket
-			CLOSESOCKET(client.clientSocket);
+			// If there was an error, throw an exception
+			if (bytesSent == SOCKET_ERROR)
+			{
+				// Get the error code
+				int errorCode = GETERROR();
+				ThrowSendException(client.clientSocket, errorCode);
+			}
+		}
 
-	    #ifdef _WIN32
-			// Clean up the Windows Sockets DLL
-			WSACleanup();
-	    #endif
+		catch(Networking::NetworkException &ex)
+		{
+			switch(ex.GetErrorCode())
+			{
+			case EAGAIN:
+				int retries =0;
+				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
+				{
+					retries++;
+					std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+					bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
+				}
 
-			// Throw the error code
-			throw errorCode;
+				if(retries == MAX_RETRIES)
+				{
+					DisconnectClient(client);
+				}
+
+				break;
+
+			case EINPROGRESS:
+
+				int retries =0;
+				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
+				{
+					retries++;
+					std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+					bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
+				}
+
+				if(retries == MAX_RETRIES)
+				{
+					DisconnectClient(client);
+				}
+
+				break;
+
+
+			case EINTR:
+				int retries =0;
+				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
+				{
+					retries++;
+					std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
+					bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
+				}
+
+				if(retries == MAX_RETRIES)
+				{
+					DisconnectClient(client);
+				}
+
+				break;
+
+
+			default:
+				DisconnectClient(client);
+				break;
+			}
+
 		}
 	}
 
