@@ -16,7 +16,7 @@
 #define CLOSESOCKET(s) (closesocket(s))
 #endif
 
-#else 
+#else
 #include  <sys/socket.h>
 #include <netinet/in.h>
 #include  <errno.h>
@@ -41,98 +41,98 @@ typedef const char* PCSTR;
 #include <string>
 #include <vector>
 
-namespace Networking{
+namespace Networking {
 
-class Client{
+class Client {
 public:
- // Constructs a new client object with no host or port specified.
-    Client();
+// Constructs a new client object with no host or port specified.
+Client();
 
-    // Constructs a new client object with the specified host and port.
-    // The client will automatically connect to the host on the specified port.
-    Client(char* _pHost, int _pPortNumber);
+// Constructs a new client object with the specified host and port.
+// The client will automatically connect to the host on the specified port.
+Client(char* _pHost, int _pPortNumber);
 
-    // Destroys the client object and cleans up any resources it was using.
-    ~Client();
+// Destroys the client object and cleans up any resources it was using.
+~Client();
 
-    // Initializes the client socket.
-    bool InitClientSocket();
+// Initializes the client socket.
+bool InitClientSocket();
 
-    // Creates a TCP client socket with the specified host and port.
-    bool CreateClientTCPSocket(char* _pHost, int pPort);
+// Creates a TCP client socket with the specified host and port.
+bool CreateClientTCPSocket(char* _pHost, int pPort);
 
-    // Creates a UDP client socket with the specified host and port.
-    bool CreateClientUDPSocket(char* _pHost, int _pPort);
+// Creates a UDP client socket with the specified host and port.
+bool CreateClientUDPSocket(char* _pHost, int _pPort);
 
-    // Creates a client socket with the specified host, port, socket type,
-    // and protocol.
-    bool CreateClientSocket(char* _pHost, int _pPort);
+// Creates a client socket with the specified host, port, socket type,
+// and protocol.
+bool CreateClientSocket(char* _pHost, int _pPort);
 
-    // Connects the client socket to the specified host on the specified port.
-    bool ConnectClientSocket();
+// Connects the client socket to the specified host on the specified port.
+bool ConnectClientSocket();
 
-    // Sets the socket type for the client socket.
-    void SetSocketType(int _pSocktype);
+// Sets the socket type for the client socket.
+void SetSocketType(int _pSocktype);
 
-    // Sets the protocol for the client socket.
-    void SetProtocol(int _pProtocol);
+// Sets the protocol for the client socket.
+void SetProtocol(int _pProtocol);
 
-    // Sets the address family for the client socket.
-    void SetFamily(int _pFamily);
+// Sets the address family for the client socket.
+void SetFamily(int _pFamily);
 
-    // Sends the specified data buffer to the connected host.
-    int Send(char* _pSendBuffer);
+// Sends the specified data buffer to the connected host.
+int Send(char* _pSendBuffer);
 
 // Send data to a specified address and port
-    int SendTo(char* pBuffer, char* pAddress, int pPort);
+int SendTo(char* pBuffer, char* pAddress, int pPort);
 
-    // Send a file to the server
-    void SendFile(const std::string& _pFilePath);
+// Send a file to the server
+void SendFile(const std::string& _pFilePath);
 
-    // Receives data from the connected host and stores it in a vector.
-    std::vector<char> Receive();
+// Receives data from the connected host and stores it in a vector.
+std::vector<char> Receive();
 
 // Receive data from a specified address and port
-    std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
+std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
 
-    // Receive a file from the server
-    void   ReceiveFile(const std::string& _pFilePath);
+// Receive a file from the server
+void   ReceiveFile(const std::string& _pFilePath);
 
-    // Disconnects the client socket from the host.
-    bool Disconnect();
+// Disconnects the client socket from the host.
+bool Disconnect();
 
-    // Returns whether the client is currently connected to a host.
-    bool IsConnected();
+// Returns whether the client is currently connected to a host.
+bool IsConnected();
 
-    // Get the hostname of the client
-    std::string GetHostName();
+// Get the hostname of the client
+std::string GetHostName();
 
-    // Get the hostname of the server
-    std::string GetServerHostName();
+// Get the hostname of the server
+std::string GetServerHostName();
 
-    // Get the local IP address of the client
-    std::string GetLocalIPAddress();
+// Get the local IP address of the client
+std::string GetLocalIPAddress();
 
-    // Get the remote IP address of the server
-    std::string GetRemoteIPAddress();
+// Get the remote IP address of the server
+std::string GetRemoteIPAddress();
 
 private:
-    // Whether the client is currently connected to a host.
-    bool clientIsConnected = false;
+// Whether the client is currently connected to a host.
+bool clientIsConnected = false;
 
-    // The client socket.
-    SOCKET connectionSocket;
+// The client socket.
+SOCKET connectionSocket;
 
-    // Windows-specific data for socket initialization.
+// Windows-specific data for socket initialization.
     #ifdef _WIN32
-    WSADATA wsaData;
+WSADATA wsaData;
     #endif
 
-    // Address information for the client socket.
-    addrinfo addressInfo;
-    addrinfo* hostAddressInfo;
+// Address information for the client socket.
+addrinfo addressInfo;
+addrinfo* hostAddressInfo;
 
-    };
+};
 
 }
 

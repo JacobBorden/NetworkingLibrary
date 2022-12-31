@@ -12,7 +12,7 @@
 #define GETERROR() (WSAGetLastError())
 #define CLOSESOCKET(s) (closesocket(s))
 #endif
-#else 
+#else
 #include  <sys/socket.h>
 #include <netinet/in.h>
 #include  <errno.h>
@@ -31,93 +31,120 @@
 typedef const char* PCSTR;
 #endif
 #endif
+#ifndef MAX_RETRIES
+#define MAX_RETRIES 3
+#endif
+#ifndef RETRY_DELAY
+#define RETRY_DELAY 5
+#endif
 #include <iostream>
 #include <string>
 #include <vector>
+#include "networkexception.h"
+#include "errorcodes.h"
 
-namespace Networking{
+
+namespace Networking {
+
+enum ServerType
+{
+	IPv4,
+	IPv6
+};
 
 // Struct to hold information about a connected client
-struct ClientConnection{
-SOCKET clientSocket;
-sockaddr_in clientInfo;
+struct ClientConnection {
+	SOCKET clientSocket;
+	sockaddr_in clientInfo;
+	sockaddr_in6 clientInfo6;
+bool operator==(const ClientConnection& other) const
+{
+    // Compare the clientSocket member variables of the two objects
+    return clientSocket == other.clientSocket;
+}
 };
 
 
-    class Server{
-        public:
-     // Default constructor
-    Server();
+class Server {
+public:
 
-    // Constructor that takes in a port number
-    Server(int _pPortNumber);
+//Constructor that takes in a port number and a server type
+Server(int _pPortNumber, ServerType _pServerType);
 
-    // Destructor
-    ~Server();
+// Destructor
+~Server();
 
-    // Initializes the server
-    bool InitServer();
+// Initializes the server
+bool InitServer();
 
-    // Creates a socket for the server using the specified port number
-    bool CreateServerSocket(int _pPortNumber);
 
-    // Listens for incoming client connections and returns a 
-    // Networking::ClientConnection object representing the connected client
-    Networking::ClientConnection Listen();
+//Creates a socket for the server using the specified port number and server type
+bool CreateServerSocket(int _pPortNumber, ServerType _pServerType);
 
-    // Sets the socket type
-    void SetSocketType(int _pSockType);
+void CreateSocket();
+void BindSocket();
+void ListenOnSocket();
 
-    // Sets the socket family
-    void SetFamily(int _pFamily);
+// Listens for incoming client connections and returns a
+// Networking::ClientConnection object representing the connected client
+Networking::ClientConnection Accept();
 
-    // Sets the socket protocol
-    void SetProtocol(int _pProtocol);
+// Sets the socket type
+void SetSocketType(int _pSockType);
 
-    // Sends data to a specific client
-    int Send(char* _pSendBuffer, Networking::ClientConnection _pClient);
+// Sets the socket family
+void SetFamily(int _pFamily);
 
-    // Sends data to a specific address and port
-    int SendTo(char* _pBuffer, char* _pAddress, int _pPort);
+// Sets the socket protocol
+void SetProtocol(int _pProtocol);
 
-    // Sends data to all connected clients
-    int SendToAll(char* _pSendBuffer);
+// Sends data to a specific client
+int Send(char* _pSendBuffer, Networking::ClientConnection _pClient);
 
-    // Sends a file to a specific client
-    void SendFile(const std::string& _pFilePath, Networking::ClientConnection client);
+// Sends data to a specific address and port
+int SendTo(char* _pBuffer, char* _pAddress, int _pPort);
 
-    // Receives data from a specific client
-    std::vector<char> Receive(Networking::ClientConnection client);
+// Sends data to all connected clients
+int SendToAll(char* _pSendBuffer);
 
-    // Receives data from a specific address and port
-    std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
+// Sends a file to a specific client
+void SendFile(const std::string& _pFilePath, Networking::ClientConnection client);
 
-    // Receives a file from a specific client
-    void ReceiveFile(const std::string& _pFilePath, Networking::ClientConnection client);
+// Receives data from a specific client
+std::vector<char> Receive(Networking::ClientConnection client);
 
-    // Returns true if the server is currently running and listening for connections
-    // Returns false otherwise
-    bool ServerIsRunning();
-     // Shut down the server
+// Receives data from a specific address and port
+std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
+
+// Receives a file from a specific client
+void ReceiveFile(const std::string& _pFilePath, Networking::ClientConnection client);
+
+// Returns true if the server is currently running and listening for connections
+// Returns false otherwise
+bool ServerIsRunning();
+// Shut down the server
 void Shutdown();
 
 // Disconnects a specific client
 void DisconnectClient(Networking::ClientConnection _pClient);
 
-// Returns a vector of Networking::ClientConnection objects representing all 
+// Returns a vector of Networking::ClientConnection objects representing all
 // currently connected clients
 std::vector<Networking::ClientConnection> getClients() const;
 
-        private:
-        #ifdef _WIN32
-        WSADATA wsaData;
-        #endif
-        addrinfo addressInfo;
-        SOCKET serverSocket;
-        sockaddr_in serverInfo;
-        bool serverIsConnected = false;
-        std::vector<Networking::ClientConnection> clients;
-    };
+//Handles errors
+void ErrorHandling(NetworkException _pNetEx);
+
+private:
+	#ifdef _WIN32
+WSADATA wsaData;
+	#endif
+addrinfo addressInfo;
+SOCKET serverSocket;
+sockaddr_in serverInfo;
+bool serverIsConnected = false;
+std::vector<Networking::ClientConnection> clients;
+};
 }
 
 #endif

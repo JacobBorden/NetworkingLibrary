@@ -1,5 +1,13 @@
 # Change Log
 
+## v0.3
+
+### Server
+
+- Added support for IPv6
+- Moved error messages to the error stream instead of output stream
+- Improved error handling
+
 ## v0.2
 
 ### Client

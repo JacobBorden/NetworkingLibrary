@@ -24,11 +24,25 @@ using namespace Networking;
 
 int main()
 {
-  // Create a server on port 8080
-  Server server(8080);
+
+
+
+// This will open a server on port 8080 with IPv4
+Networking::Server server;
+
+// This will open a server on port 80 with IPv4
+Networking::Server server(80);
+
+// This will open a server on port 8080 with IPv6
+Networking::Server server(ServerType::IPv6);
+
+// This will open a server on port 80 with IPv6
+Networking::Server server(80, ServerType::IPv6);
+
 
   // Initialize the server
-  if (server.InitServer())
+  if (server.ServerIsConnected())
+
   {
     std::cout << "Server initialized" << std::endl;
   }
@@ -37,7 +51,9 @@ int main()
   while (true)
   {
     // Accept a client connection
-    ClientConnection client = server.Listen();
+
+    ClientConnection client = server.Accept();
+
 
     // Send a message to the client
     char buffer[] = "Hello from the server!";
@@ -46,4 +62,5 @@ int main()
 
   return 0;
 }
-```
+
+
