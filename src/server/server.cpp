@@ -499,6 +499,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 {
 
 	int bytesSent;
+	int retries =0;
 	// Iterate over all connected clients
 	for (auto client : clients)
 	{
@@ -521,7 +522,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 			switch(ex.GetErrorCode())
 			{
 			case EAGAIN:
-				int retries =0;
+				 retries =0;
 				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					retries++;
@@ -529,7 +530,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 					bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
 				}
 
-				if(retries == MAX_RETRIES)
+				if(retries == MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					DisconnectClient(client);
 				}
@@ -538,7 +539,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 
 			case EINPROGRESS:
 
-				int retries =0;
+				 retries =0;
 				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					retries++;
@@ -546,7 +547,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 					bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
 				}
 
-				if(retries == MAX_RETRIES)
+				if(retries == MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					DisconnectClient(client);
 				}
@@ -555,7 +556,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 
 
 			case EINTR:
-				int retries =0;
+				retries =0;
 				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					retries++;
@@ -563,7 +564,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 					bytesSent = send(client.clientSocket, _pSendBuffer, strlen(_pSendBuffer), 0);
 				}
 
-				if(retries == MAX_RETRIES)
+				if(retries == MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					DisconnectClient(client);
 				}
@@ -609,12 +610,13 @@ void Networking::Server::SendFile(const std::string& _pFilePath, Networking::Cli
 // Receive data from the server
 std::vector <char> Networking::Server::Receive(Networking::ClientConnection client)
 {
+	static int retries =0;
 	// Initialize the number of bytes received to 0
 	int bytesReceived =0;
 
 	// Create a vector to store the received data
 	std::vector<char> receiveBuffer;
-
+	try{
 	// Receive data from the server in a loop
 	do{
 		// Get the current size of the receive buffer
@@ -632,16 +634,45 @@ std::vector <char> Networking::Server::Receive(Networking::ClientConnection clie
 	{
 		// Get the error code
 		int errorCode = GETERROR();
-
-		// Close the socket
-		CLOSESOCKET(client.clientSocket);
-    #ifdef _WIN32
-		// Clean up the Windows Sockets DLL
-		WSACleanup();
-    #endif
-		// Throw the error code
-		throw errorCode;
+		Networking::ThrowReceiveException(client.clientSocket,errorCode);
 	}
+	retries =0;
+	}
+	catch(Networking::NetworkException &ex)
+	{
+		switch(ex.GetErrorCode())
+		{
+			case EAGAIN:
+				if(retries < MAX_RETRIES)
+				{
+					retries++;
+					Receive(client);
+				}
+				else{
+					retries =0;
+					DisconnectClient(client);
+					std::cerr<<"Exception thrown. "<<ex.what();
+					break;
+				}
+			case EINTR:
+				if(retries < MAX_RETRIES)
+				{
+					retries++;
+					Receive(client);
+				}
+				else{
+					retries =0;
+					DisconnectClient(client);
+					std::cerr<<"Exception thrown. "<<ex.what();
+					break;
+				}
+			default:
+				DisconnectClient(client);
+				std::cerr<<"Exception thrown. "<<ex.what();
+				break;
+		}
+	}
+
 	// Return the vector containing the received data
 	return receiveBuffer;
 }

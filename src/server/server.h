@@ -57,6 +57,11 @@ struct ClientConnection {
 	SOCKET clientSocket;
 	sockaddr_in clientInfo;
 	sockaddr_in6 clientInfo6;
+bool operator==(const ClientConnection& other) const
+{
+    // Compare the clientSocket member variables of the two objects
+    return clientSocket == other.clientSocket;
+}
 };
 
 

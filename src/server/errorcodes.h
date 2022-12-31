@@ -115,11 +115,23 @@ const ErrorMap sendMap = {
 	{ EPIPE, "Broken pipe" },
 	{ EWOULDBLOCK, "Operation would block" }
 };
+
+const ErrorMap receiveMap = {
+	{EAGAIN, "The socket is marked as non-blocking and no data is waiting to be received, or the timeout time specified by the 'SO_RCVTIMEO' socket option has been exceeded."},
+	{EBADF, "The desriptor is invalid"},
+	{ECONNRESET, "The connection was reset by the peer"},
+	{EINTR, "The 'recv()' function was interrupted by a signal before any data was received."},
+	{EINVAL, "The socket is shut down or the receive buffer is empty."},
+	{ENOMEM, "There was insufficient memory available to complete the operation"},
+	{ENOTSOCK, "The descriptor does not refer to a socket."},
+	{ETIMEDOUT, "The connectiopn timed out during connection establishment, or due to a transmission timeout on an active connection."}
+};
 }
 void ThrowSocketException(int socket, int errorCode);
 void ThrowBindException(int socket, int errorCode);
 void ThrowListenException(int socket, int errorCode);
 void ThrowAcceptException(int socket, int errorCode);
 void ThrowSendException(int socket, int errorCode);
+void ThrowReceiveException(int socket, int errorCode);
 }
 #endif
