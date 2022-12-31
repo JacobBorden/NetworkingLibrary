@@ -26,6 +26,7 @@ int main()
 {
 
 
+
 // This will open a server on port 8080 with IPv4
 Networking::Server server;
 
@@ -41,6 +42,7 @@ Networking::Server server(80, ServerType::IPv6);
 
   // Initialize the server
   if (server.ServerIsConnected())
+
   {
     std::cout << "Server initialized" << std::endl;
   }
@@ -49,7 +51,9 @@ Networking::Server server(80, ServerType::IPv6);
   while (true)
   {
     // Accept a client connection
+
     ClientConnection client = server.Accept();
+
 
     // Send a message to the client
     char buffer[] = "Hello from the server!";
@@ -58,3 +62,5 @@ Networking::Server server(80, ServerType::IPv6);
 
   return 0;
 }
+
+
