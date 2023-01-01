@@ -24,3 +24,14 @@ void Networking::ThrowSendException(int socket, int errorCode)
 {
 	throw Networking::NetworkException(socket, errorCode, Networking::Error::sendMap.at(errorCode));
 }
+
+void Networking::ThrowReceiveException(int socket, int errorCode)
+{
+	throw Networking::NetworkException(socket, errorCode, Networking::Error::receiveMap.at(errorCode));
+}
+
+
+void Networking::ThrowShutdownException(int socket, int errorCode)
+{
+	throw Networking::NetworkException(socket, errorCode, Networking::Error::shutdownMap.at(errorCode));
+}
