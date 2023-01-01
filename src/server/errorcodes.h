@@ -126,6 +126,19 @@ const ErrorMap receiveMap = {
 	{ENOTSOCK, "The descriptor does not refer to a socket."},
 	{ETIMEDOUT, "The connectiopn timed out during connection establishment, or due to a transmission timeout on an active connection."}
 };
+
+const ErrorMap shutdownMap ={
+	{EBADF, "The socket descriptor is not valid"},
+	{ENOTSOCK, "The descriptor is not a socket"},
+	{ENOTCONN, "The socket is not connected"},
+	{EINVAL, "The how parameter is invalid"},
+	{ENOBUFS, "No buffer space is available"},
+	{EACCES, "The calling process does not have the appropriate privileges"},
+	{EFAULT, "The socket address structure points to invalid memory"},
+	{EINPROGRESS, "A blocking socket call is in progress"},
+	{EINTR, "The function was interrupted by a signal that was caught"}
+};
+
 }
 void ThrowSocketException(int socket, int errorCode);
 void ThrowBindException(int socket, int errorCode);
@@ -133,5 +146,6 @@ void ThrowListenException(int socket, int errorCode);
 void ThrowAcceptException(int socket, int errorCode);
 void ThrowSendException(int socket, int errorCode);
 void ThrowReceiveException(int socket, int errorCode);
+void ThrowShutdownException(int socket, int errorCode);
 }
 #endif
