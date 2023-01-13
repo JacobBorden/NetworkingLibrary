@@ -53,7 +53,7 @@ bool Networking::Server::CreateServerSocket(int _pPortNumber,  ServerType _pServ
 
 // Set up the sockaddr_in structure
 	serverInfo.sin_family = addressInfo.ai_family;
-	serverInfo.sin_addr.s_addr = INADDR_ANY;
+	serverInfo.sin_addr.s_addr = inet_addr("127.0.0.1");
 	serverInfo.sin_port = htons(_pPortNumber);
 
 // Bind the server socket to a port
