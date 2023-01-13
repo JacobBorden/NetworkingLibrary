@@ -49,13 +49,14 @@ bool Networking::Server::CreateServerSocket(int _pPortNumber,  ServerType _pServ
 	SetSocketType(SOCK_STREAM);
 	SetProtocol(IPPROTO_TCP);
 
-	CreateSocket();
+
 
 // Set up the sockaddr_in structure
 	serverInfo.sin_family = addressInfo.ai_family;
 	serverInfo.sin_addr.s_addr = inet_addr("127.0.0.1");
 	serverInfo.sin_port = htons(_pPortNumber);
-
+	
+	CreateSocket();
 // Bind the server socket to a port
 	BindSocket();
 
