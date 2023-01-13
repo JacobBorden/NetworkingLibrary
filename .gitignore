@@ -4,3 +4,4 @@ build/*
 uncrustify.cfg
 *.unc-backup.md5~
 *.unc-backup~
+.ccls-cache/*
