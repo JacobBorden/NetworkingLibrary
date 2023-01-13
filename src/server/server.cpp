@@ -683,7 +683,9 @@ std::vector<char> Networking::Server::ReceiveFrom(char* _pAddress, int _pPort)
 {
 	// Initialize the number of bytes received to 0
 	int bytesReceived =0;
-
+	static int retries =0;
+	std::vector<char> receiveBuffer;
+	try{
 	sockaddr_storage sockAddress;
 	ZeroMemory(&sockAddress, sizeof(sockAddress));
 	if(serverInfo.sin_family == AF_INET)
@@ -708,8 +710,6 @@ std::vector<char> Networking::Server::ReceiveFrom(char* _pAddress, int _pPort)
 		sender->sin6_port = htons(_pPort);
 		inet_pton(AF_INET6, _pAddress, &sender->sin6_addr);
 	}
-	// Receive data from the specified sender
-	std::vector<char> receiveBuffer;
 
 
 	// Receive data from the server in a loop
@@ -731,16 +731,42 @@ std::vector<char> Networking::Server::ReceiveFrom(char* _pAddress, int _pPort)
 		// Get the error code
 		int errorCode = GETERROR();
 
-		// Close the socket
-		CLOSESOCKET(serverSocket);
-	#ifdef _WIN32
-		// Clean up the Windows Sockets DLL
-		WSACleanup();
-	#endif
-		// Throw the error code
-		throw errorCode;
+		ThrowReceiveException(serverSocket,errorCode);
+	}
+	retries =0;
 	}
 
+	catch(Networking::NetworkException &ex)
+	{
+		switch(ex.GetErrorCode())
+		{
+			case EAGAIN:
+				if(retries < MAX_RETRIES)
+				{
+					retries++;
+					ReceiveFrom(_pAddress, _pPort);
+				}
+				else{
+					retries =0;
+					std::cerr<<"Exception thrown. "<<ex.what();
+					break;
+				}
+			case EINTR:
+				if(retries < MAX_RETRIES)
+				{
+					retries++;
+					ReceiveFrom(_pAddress, _pPort);
+				}
+				else{
+					retries =0;
+					std::cerr<<"Exception thrown. "<<ex.what();
+					break;
+				}
+			default:
+				std::cerr<<"Exception thrown. "<<ex.what();
+				break;
+		}
+	}
 	// Return the received data
 	return receiveBuffer;
 }
@@ -773,7 +799,9 @@ bool Networking::Server::ServerIsRunning()
 
 
 void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
+
 {
+	try{
 	// Disconnect the client from the server
 	// Shut down the server socket
     #ifdef _WIN32
@@ -787,15 +815,14 @@ void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
 		// Get the error code
 		int errorCode = GETERROR();
 
-	#ifdef _WIN32
-		// Clean up the Windows Sockets DLL
-		WSACleanup();
-	#endif
-
 		// Throw the error code
-		throw errorCode;
+		ThrowShutdownException(_pClient.clientSocket, errorCode);
 	}
-
+	}
+	catch (Networking::NetworkException &ex)
+	{
+		std::cerr<<"Exception thrown. "<<ex.what();
+	}
 	// Close the socket
 	CLOSESOCKET(_pClient.clientSocket);
 
@@ -807,6 +834,7 @@ void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
 // Shut down the server
 void Networking::Server::Shutdown()
 {
+	try{
 	// Disconnect the server socket
 	if (serverIsConnected)
 	{
@@ -827,18 +855,20 @@ void Networking::Server::Shutdown()
 			// Close the socket
 			CLOSESOCKET(serverSocket);
 
-	    #ifdef _WIN32
-			// Clean up the Windows Sockets DLL
-			WSACleanup();
-	    #endif
-
 			// Throw the error code
-			throw errorCode;
+			ThrowShutdownException(serverSocket, errorCode);
 		}
 
 		// Close the server socket
 		CLOSESOCKET(serverSocket);
+	}
+	}
 
+	catch (Networking::NetworkException &ex)
+	{
+		std::cerr<<"Exception thrown. "<<ex.what();
+	}
+	
 	#ifdef _WIN32
 		// Clean up the Windows Sockets DLL
 		WSACleanup();
@@ -846,8 +876,8 @@ void Networking::Server::Shutdown()
 
 		// Set the server connected flag to false
 		serverIsConnected = false;
-	}
 }
+
 
 // Return a vector of ClientConnection objects representing the currently connected clients
 std::vector<Networking::ClientConnection> Networking::Server::getClients() const
