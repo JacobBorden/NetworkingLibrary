@@ -93,6 +93,7 @@ void Networking::Server::CreateSocket()
 
 	catch(Networking::NetworkException &ex)
 	{
+		std::cerr<<"Error in Socket()"<<std::endl;
 		switch (ex.GetErrorCode())
 		{
 		case EACCES:
@@ -154,6 +155,8 @@ void Networking::Server::BindSocket()
 	}
 	catch(Networking::NetworkException &ex)
 	{
+
+		std::cerr<<"Error in Bind()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 		case EADDRINUSE:
@@ -205,6 +208,7 @@ void Networking::Server::ListenOnSocket()
 	}
 	catch (Networking::NetworkException &ex)
 	{
+		std::cerr<<"Error in Listen()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 		case EADDRINUSE:
@@ -257,7 +261,7 @@ Networking::ClientConnection Networking::Server::Accept()
 
 	catch(NetworkException &ex)
 	{
-		std::cout<<"Error in Accpet()";
+		std::cout<<"Error in Accept()";
 		switch (ex.GetErrorCode())
 		{
 			#ifdef _WIN32
@@ -340,6 +344,7 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 
 	catch (Networking::NetworkException &ex)
 	{
+		std::cerr<<"Error in Send()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 		case EAGAIN:
@@ -642,6 +647,7 @@ std::vector <char> Networking::Server::Receive(Networking::ClientConnection clie
 	}
 	catch(Networking::NetworkException &ex)
 	{
+		std::cerr<<"Error in Recieve()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 			case EAGAIN:
