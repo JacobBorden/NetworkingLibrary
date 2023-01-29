@@ -257,6 +257,7 @@ Networking::ClientConnection Networking::Server::Accept()
 
 	catch(NetworkException &ex)
 	{
+		std::cout<<"Error in Accpet()";
 		switch (ex.GetErrorCode())
 		{
 			#ifdef _WIN32
@@ -822,6 +823,7 @@ void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
 	}
 	catch (Networking::NetworkException &ex)
 	{
+		std::cout<<"Error in Disconnect";
 		std::cerr<<"Exception thrown. "<<ex.what();
 	}
 	// Close the socket
@@ -867,6 +869,7 @@ void Networking::Server::Shutdown()
 
 	catch (Networking::NetworkException &ex)
 	{
+		std::cout<<"Error in Shutdown";
 		std::cerr<<"Exception thrown. "<<ex.what();
 	}
 	
