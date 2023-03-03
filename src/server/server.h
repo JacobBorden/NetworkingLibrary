@@ -57,11 +57,11 @@ struct ClientConnection {
 	SOCKET clientSocket;
 	sockaddr_in clientInfo;
 	sockaddr_in6 clientInfo6;
-bool operator==(const ClientConnection& other) const
-{
-    // Compare the clientSocket member variables of the two objects
-    return clientSocket == other.clientSocket;
-}
+	bool operator==(const ClientConnection& other) const
+	{
+		// Compare the clientSocket member variables of the two objects
+		return clientSocket == other.clientSocket;
+	}
 };
 
 
@@ -138,6 +138,8 @@ std::vector<Networking::ClientConnection> getClients() const;
 //Handles errors
 void ErrorHandling(NetworkException _pNetEx);
 
+std::string GetClientIPAddress(ClientConnection _pClient);
+ServerType GetServerType();
 private:
 	#ifdef _WIN32
 WSADATA wsaData;
@@ -146,6 +148,7 @@ addrinfo addressInfo;
 SOCKET serverSocket;
 sockaddr_in serverInfo;
 bool serverIsConnected = false;
+ServerType serverType;
 std::vector<Networking::ClientConnection> clients;
 };
 }

@@ -3,7 +3,7 @@
 
 Networking::Server::Server(int _pPortNumber = 8080,  ServerType _pServerType = ServerType::IPv4)
 {
-
+	serverType = _pServerType;
 	Networking::Server::InitServer();
 	Networking::Server::CreateServerSocket(_pPortNumber, _pServerType);
 
@@ -55,7 +55,7 @@ bool Networking::Server::CreateServerSocket(int _pPortNumber,  ServerType _pServ
 	serverInfo.sin_family = addressInfo.ai_family;
 	serverInfo.sin_addr.s_addr = inet_addr("127.0.0.1");
 	serverInfo.sin_port = htons(_pPortNumber);
-	
+
 	CreateSocket();
 // Bind the server socket to a port
 	BindSocket();
@@ -529,7 +529,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 			switch(ex.GetErrorCode())
 			{
 			case EAGAIN:
-				 retries =0;
+				retries =0;
 				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					retries++;
@@ -546,7 +546,7 @@ int Networking::Server::SendToAll(char* _pSendBuffer)
 
 			case EINPROGRESS:
 
-				 retries =0;
+				retries =0;
 				while(retries < MAX_RETRIES && bytesSent == SOCKET_ERROR)
 				{
 					retries++;
@@ -624,60 +624,60 @@ std::vector <char> Networking::Server::Receive(Networking::ClientConnection clie
 	// Create a vector to store the received data
 	std::vector<char> receiveBuffer;
 	try{
-	// Receive data from the server in a loop
-	do{
-		// Get the current size of the receive buffer
-		int bufferStart = receiveBuffer.size();
-		// Resize the buffer to make room for more data
-		receiveBuffer.resize(bufferStart+512);
-		// Receive data from the server
-		bytesReceived = recv(client.clientSocket, &receiveBuffer[bufferStart],512,0);
-		// Resize the buffer to the actual size of the received data
-		receiveBuffer.resize(bufferStart + bytesReceived);
-	} while (bytesReceived == 512);
+		// Receive data from the server in a loop
+		do{
+			// Get the current size of the receive buffer
+			int bufferStart = receiveBuffer.size();
+			// Resize the buffer to make room for more data
+			receiveBuffer.resize(bufferStart+512);
+			// Receive data from the server
+			bytesReceived = recv(client.clientSocket, &receiveBuffer[bufferStart],512,0);
+			// Resize the buffer to the actual size of the received data
+			receiveBuffer.resize(bufferStart + bytesReceived);
+		} while (bytesReceived == 512);
 
 // If there was an error, throw an exception
-	if (bytesReceived == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
-		Networking::ThrowReceiveException(client.clientSocket,errorCode);
-	}
-	retries =0;
+		if (bytesReceived == SOCKET_ERROR)
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+			Networking::ThrowReceiveException(client.clientSocket,errorCode);
+		}
+		retries =0;
 	}
 	catch(Networking::NetworkException &ex)
 	{
 		std::cerr<<"Error in Recieve()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
-			case EAGAIN:
-				if(retries < MAX_RETRIES)
-				{
-					retries++;
-					Receive(client);
-				}
-				else{
-					retries =0;
-					DisconnectClient(client);
-					std::cerr<<"Exception thrown. "<<ex.what();
-					break;
-				}
-			case EINTR:
-				if(retries < MAX_RETRIES)
-				{
-					retries++;
-					Receive(client);
-				}
-				else{
-					retries =0;
-					DisconnectClient(client);
-					std::cerr<<"Exception thrown. "<<ex.what();
-					break;
-				}
-			default:
+		case EAGAIN:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				Receive(client);
+			}
+			else{
+				retries =0;
 				DisconnectClient(client);
 				std::cerr<<"Exception thrown. "<<ex.what();
 				break;
+			}
+		case EINTR:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				Receive(client);
+			}
+			else{
+				retries =0;
+				DisconnectClient(client);
+				std::cerr<<"Exception thrown. "<<ex.what();
+				break;
+			}
+		default:
+			DisconnectClient(client);
+			std::cerr<<"Exception thrown. "<<ex.what();
+			break;
 		}
 	}
 
@@ -694,85 +694,85 @@ std::vector<char> Networking::Server::ReceiveFrom(char* _pAddress, int _pPort)
 	static int retries =0;
 	std::vector<char> receiveBuffer;
 	try{
-	sockaddr_storage sockAddress;
-	ZeroMemory(&sockAddress, sizeof(sockAddress));
-	if(serverInfo.sin_family == AF_INET)
-	{
+		sockaddr_storage sockAddress;
+		ZeroMemory(&sockAddress, sizeof(sockAddress));
+		if(serverInfo.sin_family == AF_INET)
+		{
 
-		// Create a sockaddr_in structure to hold the address and port of the sender
-		sockaddr_in* sender = (sockaddr_in*) &sockAddress;
+			// Create a sockaddr_in structure to hold the address and port of the sender
+			sockaddr_in* sender = (sockaddr_in*) &sockAddress;
 
-		// Set the address family, port, and address of the sender
-		sender->sin_family = AF_INET;
-		sender->sin_port = htons(_pPort);
-		inet_pton(AF_INET, _pAddress, &sender->sin_addr);
-	}
+			// Set the address family, port, and address of the sender
+			sender->sin_family = AF_INET;
+			sender->sin_port = htons(_pPort);
+			inet_pton(AF_INET, _pAddress, &sender->sin_addr);
+		}
 
-	else if (serverInfo.sin_family == AF_INET6)
-	{
-		// Create a sockaddr_in structure to hold the address and port of the sender
-		sockaddr_in6* sender = (sockaddr_in6*) &sockAddress;
+		else if (serverInfo.sin_family == AF_INET6)
+		{
+			// Create a sockaddr_in structure to hold the address and port of the sender
+			sockaddr_in6* sender = (sockaddr_in6*) &sockAddress;
 
-		// Set the address family, port, and address of the sender
-		sender->sin6_family = AF_INET6;
-		sender->sin6_port = htons(_pPort);
-		inet_pton(AF_INET6, _pAddress, &sender->sin6_addr);
-	}
-
-
-	// Receive data from the server in a loop
-	do{
-		// Get the current size of the receive buffer
-		int bufferStart = receiveBuffer.size();
-		// Resize the buffer to make room for more data
-		receiveBuffer.resize(bufferStart+512);
-		// Receive data from the server
-		bytesReceived = recvfrom(serverSocket, &receiveBuffer[bufferStart], 512, 0, (sockaddr*)&sockAddress, (socklen_t*)sizeof(sockAddress));
-		// Resize the buffer to the actual size of the received data
-		receiveBuffer.resize(bufferStart + bytesReceived);
-	} while (bytesReceived == 512);
+			// Set the address family, port, and address of the sender
+			sender->sin6_family = AF_INET6;
+			sender->sin6_port = htons(_pPort);
+			inet_pton(AF_INET6, _pAddress, &sender->sin6_addr);
+		}
 
 
-	// If there was an error, throw an exception
-	if(bytesReceived == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
+		// Receive data from the server in a loop
+		do{
+			// Get the current size of the receive buffer
+			int bufferStart = receiveBuffer.size();
+			// Resize the buffer to make room for more data
+			receiveBuffer.resize(bufferStart+512);
+			// Receive data from the server
+			bytesReceived = recvfrom(serverSocket, &receiveBuffer[bufferStart], 512, 0, (sockaddr*)&sockAddress, (socklen_t*)sizeof(sockAddress));
+			// Resize the buffer to the actual size of the received data
+			receiveBuffer.resize(bufferStart + bytesReceived);
+		} while (bytesReceived == 512);
 
-		ThrowReceiveException(serverSocket,errorCode);
-	}
-	retries =0;
+
+		// If there was an error, throw an exception
+		if(bytesReceived == SOCKET_ERROR)
+		{
+			// Get the error code
+			int errorCode = GETERROR();
+
+			ThrowReceiveException(serverSocket,errorCode);
+		}
+		retries =0;
 	}
 
 	catch(Networking::NetworkException &ex)
 	{
 		switch(ex.GetErrorCode())
 		{
-			case EAGAIN:
-				if(retries < MAX_RETRIES)
-				{
-					retries++;
-					ReceiveFrom(_pAddress, _pPort);
-				}
-				else{
-					retries =0;
-					std::cerr<<"Exception thrown. "<<ex.what();
-					break;
-				}
-			case EINTR:
-				if(retries < MAX_RETRIES)
-				{
-					retries++;
-					ReceiveFrom(_pAddress, _pPort);
-				}
-				else{
-					retries =0;
-					std::cerr<<"Exception thrown. "<<ex.what();
-					break;
-				}
-			default:
+		case EAGAIN:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				ReceiveFrom(_pAddress, _pPort);
+			}
+			else{
+				retries =0;
 				std::cerr<<"Exception thrown. "<<ex.what();
 				break;
+			}
+		case EINTR:
+			if(retries < MAX_RETRIES)
+			{
+				retries++;
+				ReceiveFrom(_pAddress, _pPort);
+			}
+			else{
+				retries =0;
+				std::cerr<<"Exception thrown. "<<ex.what();
+				break;
+			}
+		default:
+			std::cerr<<"Exception thrown. "<<ex.what();
+			break;
 		}
 	}
 	// Return the received data
@@ -810,22 +810,22 @@ void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
 
 {
 	try{
-	// Disconnect the client from the server
-	// Shut down the server socket
+		// Disconnect the client from the server
+		// Shut down the server socket
     #ifdef _WIN32
-	int shutdownResult = shutdown(_pClient.clientSocket, SD_BOTH);
+		int shutdownResult = shutdown(_pClient.clientSocket, SD_BOTH);
     #else
-	int shutdownResult = shutdown(_pClient.clientSocket, SHUT_RDWR);
+		int shutdownResult = shutdown(_pClient.clientSocket, SHUT_RDWR);
     #endif
-	// If there was an error, throw an exception
-	if (shutdownResult == SOCKET_ERROR)
-	{
-		// Get the error code
-		int errorCode = GETERROR();
+		// If there was an error, throw an exception
+		if (shutdownResult == SOCKET_ERROR)
+		{
+			// Get the error code
+			int errorCode = GETERROR();
 
-		// Throw the error code
-		ThrowShutdownException(_pClient.clientSocket, errorCode);
-	}
+			// Throw the error code
+			ThrowShutdownException(_pClient.clientSocket, errorCode);
+		}
 	}
 	catch (Networking::NetworkException &ex)
 	{
@@ -844,33 +844,33 @@ void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
 void Networking::Server::Shutdown()
 {
 	try{
-	// Disconnect the server socket
-	if (serverIsConnected)
-	{
-		// Shut down the server socket
+		// Disconnect the server socket
+		if (serverIsConnected)
+		{
+			// Shut down the server socket
 	#ifdef _WIN32
-		int shutdownResult= shutdown(serverSocket, SD_BOTH);
+			int shutdownResult= shutdown(serverSocket, SD_BOTH);
 	#else
-		int shutdownResult= shutdown(serverSocket, SHUT_RDWR);
+			int shutdownResult= shutdown(serverSocket, SHUT_RDWR);
 	#endif
 
 
-		// Check if the socket was successfully shut down
-		if (shutdownResult == SOCKET_ERROR)
-		{
-			// Get the error code
-			int errorCode = GETERROR();
+			// Check if the socket was successfully shut down
+			if (shutdownResult == SOCKET_ERROR)
+			{
+				// Get the error code
+				int errorCode = GETERROR();
 
-			// Close the socket
+				// Close the socket
+				CLOSESOCKET(serverSocket);
+
+				// Throw the error code
+				ThrowShutdownException(serverSocket, errorCode);
+			}
+
+			// Close the server socket
 			CLOSESOCKET(serverSocket);
-
-			// Throw the error code
-			ThrowShutdownException(serverSocket, errorCode);
 		}
-
-		// Close the server socket
-		CLOSESOCKET(serverSocket);
-	}
 	}
 
 	catch (Networking::NetworkException &ex)
@@ -878,14 +878,14 @@ void Networking::Server::Shutdown()
 		std::cout<<"Error in Shutdown";
 		std::cerr<<"Exception thrown. "<<ex.what();
 	}
-	
+
 	#ifdef _WIN32
-		// Clean up the Windows Sockets DLL
-		WSACleanup();
+	// Clean up the Windows Sockets DLL
+	WSACleanup();
 	#endif
 
-		// Set the server connected flag to false
-		serverIsConnected = false;
+	// Set the server connected flag to false
+	serverIsConnected = false;
 }
 
 
@@ -895,3 +895,19 @@ std::vector<Networking::ClientConnection> Networking::Server::getClients() const
 	return clients;
 }
 
+std::string Networking::Server::GetClientIPAddress(Networking::ClientConnection _pClient)
+{
+	std::string ip;
+	if(GetServerType() == Networking::ServerType::IPv4)
+		ip = inet_ntoa(_pClient.clientInfo.sin_addr);
+	else {
+		ip.resize(INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, &_pClient.clientInfo6.sin6_addr, &ip[0],INET6_ADDRSTRLEN);
+	}
+	return ip;
+}
+
+Networking::ServerType Networking::Server::GetServerType()
+{
+	return serverType;
+}
