@@ -1,7 +1,7 @@
 #include "server.h"
 
 
-Networking::Server::Server(int _pPortNumber = 8080,  ServerType _pServerType = ServerType::IPv4)
+Networking::Server::Server(int _pPortNumber = 8080,  ServerType _pServerType = ServerType::IPv4) : logger("server.log")
 {
 	serverType = _pServerType;
 	Networking::Server::InitServer();
@@ -28,7 +28,7 @@ bool Networking::Server::InitServer()
 	}
 	catch(Networking::NetworkException &ex)
 	{
-		std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+	logger.log(<ex.what());
 		std::exit(EXIT_FAILURE);
 	}
 
@@ -93,17 +93,14 @@ void Networking::Server::CreateSocket()
 
 	catch(Networking::NetworkException &ex)
 	{
-		std::cerr<<"Error in Socket()"<<std::endl;
 		switch (ex.GetErrorCode())
 		{
 		case EACCES:
-			std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
-			std::cerr<<"The process does not have permission to create a socket of the specified type or protocol."<<std::endl;
+			logger.log(ex.what());
 			std::exit(EXIT_FAILURE);
 
 		case EAFNOSUPPORT:
-			std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
-			std::cerr<<"The implementation does not support the specified address family."<<std::endl;
+			logger.log(ex.what());
 			std::exit(EXIT_FAILURE);
 
 		case EADDRINUSE:
@@ -116,7 +113,7 @@ void Networking::Server::CreateSocket()
 
 			else
 			{
-				std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+				logger.log(ex.what());
 				std::exit(EXIT_FAILURE);
 			}
 		case EINTR:
@@ -129,11 +126,11 @@ void Networking::Server::CreateSocket()
 
 			else
 			{
-				std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+				logger.log(ex.what());
 				std::exit(EXIT_FAILURE);
 			}
 		default:
-			std::cerr<<"Exception thrown: "<< ex.what()<<std::endl;
+			logger.log(ex.what());
 			std::exit(EXIT_FAILURE);
 		}
 	}
@@ -156,7 +153,6 @@ void Networking::Server::BindSocket()
 	catch(Networking::NetworkException &ex)
 	{
 
-		std::cerr<<"Error in Bind()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 		case EADDRINUSE:
@@ -168,7 +164,7 @@ void Networking::Server::BindSocket()
 			}
 			else
 			{
-				std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+				logger.log(ex.what());
 				std::exit(EXIT_FAILURE);
 			}
 		case EADDRNOTAVAIL:
@@ -180,12 +176,12 @@ void Networking::Server::BindSocket()
 			}
 			else
 			{
-				std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+				log.logger(ex.what());
 				std::exit(EXIT_FAILURE);
 			}
 
 		default:
-			std::cerr<<"Exception thrown "<<ex.what()<<std::endl;
+			logger.log(ex.what());
 			std::exit(EXIT_FAILURE);
 		}
 
@@ -208,7 +204,6 @@ void Networking::Server::ListenOnSocket()
 	}
 	catch (Networking::NetworkException &ex)
 	{
-		std::cerr<<"Error in Listen()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 		case EADDRINUSE:
@@ -219,11 +214,11 @@ void Networking::Server::ListenOnSocket()
 				ListenOnSocket();
 			}
 			else{
-				std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+				logger.log(ex.what());
 				std::exit(EXIT_FAILURE);
 			}
 		default:
-			std::cerr<<"Exception thrown: "<<ex.what()<<std::endl;
+			logger.log(ex.what());
 			std::exit(EXIT_FAILURE);
 		}
 	}
@@ -261,7 +256,6 @@ Networking::ClientConnection Networking::Server::Accept()
 
 	catch(NetworkException &ex)
 	{
-		std::cout<<"Error in Accept()";
 		switch (ex.GetErrorCode())
 		{
 			#ifdef _WIN32
@@ -273,7 +267,7 @@ Networking::ClientConnection Networking::Server::Accept()
 				std::this_thread::sleep_for(std::chrono::seconds(RETRY_DELAY));
 				Accept();
 			}
-			std::cerr<<"Exception thrown. "<<ex.what();
+			logger.log(ex.what());
 			return Networking::ClientConnection();
 
 			#else
@@ -286,13 +280,13 @@ Networking::ClientConnection Networking::Server::Accept()
 				Accept();
 			}
 
-			std::cerr<<"Exception thrown. "<<ex.what();
+			logger.log(ex.what());
 			return Networking::ClientConnection();
 
 			#endif
 
 		default:
-			std::cerr<<"Exception thrown. "<<ex.what();
+			logger.log(ex.what());
 			return Networking::ClientConnection();
 		}
 	}
@@ -344,7 +338,6 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 
 	catch (Networking::NetworkException &ex)
 	{
-		std::cerr<<"Error in Send()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 		case EAGAIN:
@@ -356,7 +349,7 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 			}
 			else
 			{
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				DisconnectClient(_pClient);
 				break;
 			}
@@ -370,7 +363,7 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 			}
 			else
 			{
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				DisconnectClient(_pClient);
 				break;
 			}
@@ -384,13 +377,13 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 			}
 			else
 			{
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				DisconnectClient(_pClient);
 				break;
 			}
 
 		default:
-			std::cerr<<"Exception thrown. "<<ex.what();
+			logger(ex.what());
 			DisconnectClient(_pClient);
 			break;
 
@@ -460,7 +453,7 @@ int Networking::Server::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
 			}
 			else
 			{
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				break;
 			}
 
@@ -473,7 +466,7 @@ int Networking::Server::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
 			}
 			else
 			{
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				break;
 			}
 
@@ -486,12 +479,12 @@ int Networking::Server::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
 			}
 			else
 			{
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				break;
 			}
 
 		default:
-			std::cerr<<"Exception thrown. "<<ex.what();
+			logger.log(ex.what());
 			break;
 
 		}
@@ -647,7 +640,6 @@ std::vector <char> Networking::Server::Receive(Networking::ClientConnection clie
 	}
 	catch(Networking::NetworkException &ex)
 	{
-		std::cerr<<"Error in Recieve()"<<std::endl;
 		switch(ex.GetErrorCode())
 		{
 		case EAGAIN:
@@ -659,7 +651,7 @@ std::vector <char> Networking::Server::Receive(Networking::ClientConnection clie
 			else{
 				retries =0;
 				DisconnectClient(client);
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				break;
 			}
 		case EINTR:
@@ -671,12 +663,12 @@ std::vector <char> Networking::Server::Receive(Networking::ClientConnection clie
 			else{
 				retries =0;
 				DisconnectClient(client);
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				break;
 			}
 		default:
 			DisconnectClient(client);
-			std::cerr<<"Exception thrown. "<<ex.what();
+			logger.log(ex.what());
 			break;
 		}
 	}
@@ -756,7 +748,7 @@ std::vector<char> Networking::Server::ReceiveFrom(char* _pAddress, int _pPort)
 			}
 			else{
 				retries =0;
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				break;
 			}
 		case EINTR:
@@ -767,11 +759,11 @@ std::vector<char> Networking::Server::ReceiveFrom(char* _pAddress, int _pPort)
 			}
 			else{
 				retries =0;
-				std::cerr<<"Exception thrown. "<<ex.what();
+				logger.log(ex.what());
 				break;
 			}
 		default:
-			std::cerr<<"Exception thrown. "<<ex.what();
+			logger.log(ex.what());
 			break;
 		}
 	}
@@ -829,8 +821,8 @@ void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
 	}
 	catch (Networking::NetworkException &ex)
 	{
-		std::cout<<"Error in Disconnect";
-		std::cerr<<"Exception thrown. "<<ex.what();
+		
+		logger.log(ex.what());
 	}
 	// Close the socket
 	CLOSESOCKET(_pClient.clientSocket);
@@ -875,8 +867,7 @@ void Networking::Server::Shutdown()
 
 	catch (Networking::NetworkException &ex)
 	{
-		std::cout<<"Error in Shutdown";
-		std::cerr<<"Exception thrown. "<<ex.what();
+		logger.log(ex.what());
 	}
 
 	#ifdef _WIN32

@@ -150,6 +150,7 @@ sockaddr_in serverInfo;
 bool serverIsConnected = false;
 ServerType serverType;
 std::vector<Networking::ClientConnection> clients;
+Logger logger;
 };
 }
 
