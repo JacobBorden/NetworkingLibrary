@@ -40,6 +40,8 @@ typedef const char* PCSTR;
 #include <iostream>
 #include <string>
 #include <vector>
+#include <thread>
+#include <chrono>
 #include "networkexception.h"
 #include "errorcodes.h"
 #include "logger.h"
@@ -69,10 +71,7 @@ class Server {
 public:
 
 //Constructor that takes in a port number and a server type
-Server();
-Server(int _pPortNumber);
-Server(ServerType _pServerType);
-Server(int _pPortNumber, ServerType _pServerType);
+Server(int _pPortNumber = 8080, ServerType _pServerType = ServerType::IPv4, std::string _pLogFile = "server.log");
 
 // Destructor
 ~Server();

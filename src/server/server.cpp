@@ -1,7 +1,6 @@
 #include "server.h"
 
-
-Networking::Server::Server(int _pPortNumber = 8080,  ServerType _pServerType = ServerType::IPv4) : logger("server.log")
+Networking::Server::Server(int _pPortNumber, ServerType _pServerType, std::string _pLogFile) : logger(_pLogFile)
 {
 	serverType = _pServerType;
 	Networking::Server::InitServer();
@@ -28,7 +27,7 @@ bool Networking::Server::InitServer()
 	}
 	catch(Networking::NetworkException &ex)
 	{
-	logger.log(<ex.what());
+		logger.log(<ex.what());
 		std::exit(EXIT_FAILURE);
 	}
 
@@ -821,7 +820,7 @@ void Networking::Server::DisconnectClient(Networking::ClientConnection _pClient)
 	}
 	catch (Networking::NetworkException &ex)
 	{
-		
+
 		logger.log(ex.what());
 	}
 	// Close the socket
