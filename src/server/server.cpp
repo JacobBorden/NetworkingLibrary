@@ -176,7 +176,7 @@ void Networking::Server::BindSocket()
 			}
 			else
 			{
-				log.logger(ex.what());
+				logger.log(ex.what());
 				std::exit(EXIT_FAILURE);
 			}
 
@@ -383,7 +383,7 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 			}
 
 		default:
-			logger(ex.what());
+			logger.log(ex.what());
 			DisconnectClient(_pClient);
 			break;
 
