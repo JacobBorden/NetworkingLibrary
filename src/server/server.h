@@ -71,7 +71,7 @@ class Server {
 public:
 
 //Constructor that takes in a port number and a server type
-Server(int _pPortNumber = 8080, ServerType _pServerType = ServerType::IPv4, std::string _pLogFile = "server.log");
+Server(int _pPortNumber = 8080, ServerType _pServerType = ServerType::IPv4, const std::string& _pLogFile = "server.log");
 
 // Destructor
 ~Server();
@@ -139,7 +139,11 @@ void ErrorHandling(NetworkException _pNetEx);
 
 std::string GetClientIPAddress(ClientConnection _pClient);
 ServerType GetServerType();
+void LogToFile(const std::string& _pMessage);
+void LogToConsole(const std::string& _pMessage);
+
 private:
+
 	#ifdef _WIN32
 WSADATA wsaData;
 	#endif

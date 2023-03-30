@@ -1,6 +1,6 @@
 #include "server.h"
 
-Networking::Server::Server(int _pPortNumber, ServerType _pServerType, std::string _pLogFile) : logger(_pLogFile)
+Networking::Server::Server(int _pPortNumber, ServerType _pServerType,const std::string& _pLogFile) : logger(_pLogFile)
 {
 	serverType = _pServerType;
 	Networking::Server::InitServer();
@@ -292,7 +292,7 @@ Networking::ClientConnection Networking::Server::Accept()
 
 // Add the client connection to the list of clients
 	clients.push_back(client);
-
+	logger.log("New connection from " + GetClientIPAddress(client));
 	return client;
 }
 
@@ -603,6 +603,7 @@ void Networking::Server::SendFile(const std::string& _pFilePath, Networking::Cli
 
 	// Send the file data to the server
 	Send(&fileData[0], client);
+	logger.log("Sent " + _pFilePath + " to " + GetClientIPAddress(client));
 }
 
 
@@ -788,6 +789,7 @@ void Networking::Server::ReceiveFile(const std::string& _pFilePath, Networking::
 
 	// Write the file data to the file
 	file.write(&fileData[0], fileData.size());
+	logger.log("Received " + _pFilePath + " from " + GetClientIPAddress(client));
 }
 
 
