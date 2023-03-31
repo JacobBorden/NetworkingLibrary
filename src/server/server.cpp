@@ -903,3 +903,13 @@ Networking::ServerType Networking::Server::GetServerType()
 {
 	return serverType;
 }
+
+void Networking::Server::LogToFile(const std::string& _pMessage)
+{
+	logger.log(_pMessage);
+}
+
+void Networking::Server::LogToConsole(const std::string& _pMessage)
+{
+	logger.logToConsole(_pMessage);
+}
