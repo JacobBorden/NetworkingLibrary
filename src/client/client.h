@@ -50,7 +50,7 @@ Client();
 
 // Constructs a new client object with the specified host and port.
 // The client will automatically connect to the host on the specified port.
-Client(char* _pHost, int _pPortNumber);
+Client(PCSTR _pHost, int _pPortNumber);
 
 // Destroys the client object and cleans up any resources it was using.
 ~Client();
@@ -59,14 +59,14 @@ Client(char* _pHost, int _pPortNumber);
 bool InitClientSocket();
 
 // Creates a TCP client socket with the specified host and port.
-bool CreateClientTCPSocket(char* _pHost, int pPort);
+bool CreateClientTCPSocket(PCSTR _pHost, int pPort);
 
 // Creates a UDP client socket with the specified host and port.
-bool CreateClientUDPSocket(char* _pHost, int _pPort);
+bool CreateClientUDPSocket(PCSTR _pHost, int _pPort);
 
 // Creates a client socket with the specified host, port, socket type,
 // and protocol.
-bool CreateClientSocket(char* _pHost, int _pPort);
+bool CreateClientSocket(PCSTR _pHost, int _pPort);
 
 // Connects the client socket to the specified host on the specified port.
 bool ConnectClientSocket();
@@ -81,10 +81,10 @@ void SetProtocol(int _pProtocol);
 void SetFamily(int _pFamily);
 
 // Sends the specified data buffer to the connected host.
-int Send(char* _pSendBuffer);
+int Send(PCSTR _pSendBuffer);
 
 // Send data to a specified address and port
-int SendTo(char* pBuffer, char* pAddress, int pPort);
+int SendTo(PCSTR pBuffer, PCSTR pAddress, int pPort);
 
 // Send a file to the server
 void SendFile(const std::string& _pFilePath);
@@ -93,7 +93,7 @@ void SendFile(const std::string& _pFilePath);
 std::vector<char> Receive();
 
 // Receive data from a specified address and port
-std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
+std::vector<char> ReceiveFrom(PCSTR _pAddress, int _pPort);
 
 // Receive a file from the server
 void   ReceiveFile(const std::string& _pFilePath);

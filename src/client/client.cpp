@@ -16,7 +16,7 @@ Networking::Client::Client()
 }
 
 // Constructor that initializes the client socket and connects to the server
-Networking::Client::Client(char* _pHost, int _pPortNumber)
+Networking::Client::Client(PCSTR _pHost, int _pPortNumber)
 {
 	try{
 		// Initialize the client socket
@@ -53,7 +53,7 @@ bool Networking::Client::InitClientSocket()
 }
 
 // Create a TCP socket
-bool Networking::Client::CreateClientTCPSocket(char* _pHost, int _pPort)
+bool Networking::Client::CreateClientTCPSocket(PCSTR _pHost, int _pPort)
 {
 	// Clear the address info structure
 	ZeroMemory(&addressInfo, sizeof(addressInfo));
@@ -97,7 +97,7 @@ bool Networking::Client::CreateClientTCPSocket(char* _pHost, int _pPort)
 	return true;
 }
 
-bool Networking::Client::CreateClientUDPSocket(char* _pHost, int _pPort)
+bool Networking::Client::CreateClientUDPSocket(PCSTR _pHost, int _pPort)
 {
 	// Clear the address info structure
 	ZeroMemory(&addressInfo, sizeof(addressInfo));
@@ -107,7 +107,7 @@ bool Networking::Client::CreateClientUDPSocket(char* _pHost, int _pPort)
 	Networking::Client::SetProtocol(IPPROTO_UDP);
 
 	// Get the address info for the specified host and port
-	int errorCode = getaddrinfo((PCSTR)_pHost, (PCSTR)getservbyport(_pPort, NULL)->s_name,(const addrinfo*) &addressInfo,&hostAddressInfo );
+	int errorCode = getaddrinfo(_pHost, (PCSTR)getservbyport(_pPort, NULL)->s_name,(const addrinfo*) &addressInfo,&hostAddressInfo );
 
 // If there was an error, throw an exception
 	if(errorCode)
@@ -140,9 +140,9 @@ bool Networking::Client::CreateClientUDPSocket(char* _pHost, int _pPort)
 	return true;
 }
 
-bool Networking::Client::CreateClientSocket(char* _pHost, int _pPort)
+bool Networking::Client::CreateClientSocket(PCSTR _pHost, int _pPort)
 {
-	int errorCode = getaddrinfo((PCSTR)_pHost, (PCSTR)getservbyport(_pPort, NULL)->s_name,(const addrinfo*) &addressInfo,&hostAddressInfo );
+	int errorCode = getaddrinfo(_pHost, (PCSTR)getservbyport(_pPort, NULL)->s_name,(const addrinfo*) &addressInfo,&hostAddressInfo );
 
 	if(errorCode)
 	{
@@ -208,7 +208,7 @@ void Networking::Client::SetProtocol(int _pProtocol)
 
 
 // Send data to the server
-int Networking::Client::Send(char* _pSendBuffer)
+int Networking::Client::Send(PCSTR _pSendBuffer)
 {
 	// Send the data to the server
 	int bytesSent = send(connectionSocket,_pSendBuffer, strlen(_pSendBuffer),0 );
@@ -234,7 +234,7 @@ int Networking::Client::Send(char* _pSendBuffer)
 }
 
 // Send data to a specified address and port
-int Networking::Client::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
+int Networking::Client::SendTo(PCSTR _pBuffer, PCSTR _pAddress, int _pPort)
 {
 	// Create a sockaddr_in structure to hold the address and port of the recipient
 	sockaddr_in recipient;
@@ -334,7 +334,7 @@ std::vector <char> Networking::Client::Receive()
 
 
 // Receive data from a specified address and port
-std::vector<char> Networking::Client::ReceiveFrom(char* _pAddress, int _pPort)
+std::vector<char> Networking::Client::ReceiveFrom(PCSTR _pAddress, int _pPort)
 {
 	// Initialize the number of bytes received to 0
 	int bytesReceived =0;

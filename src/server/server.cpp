@@ -313,7 +313,7 @@ void Networking::Server::SetFamily(int _pFamily)
 
 
 // Send data to the client
-int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _pClient)
+int Networking::Server::Send(PCSTR _pSendBuffer, Networking::ClientConnection _pClient)
 {
 	static int retries =0;
 	int bytesSent;
@@ -395,7 +395,7 @@ int Networking::Server::Send(char* _pSendBuffer, Networking::ClientConnection _p
 }
 
 // Send data to a specified address and port
-int Networking::Server::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
+int Networking::Server::SendTo(PCSTR _pBuffer, PCSTR _pAddress, int _pPort)
 {
 	static int retries=0;
 	int bytesSent=0;
@@ -494,7 +494,7 @@ int Networking::Server::SendTo(char* _pBuffer, char* _pAddress, int _pPort)
 
 
 // Send data to all connected clients
-int Networking::Server::SendToAll(char* _pSendBuffer)
+int Networking::Server::SendToAll(PCSTR _pSendBuffer)
 {
 
 	int bytesSent;
@@ -679,7 +679,7 @@ std::vector <char> Networking::Server::Receive(Networking::ClientConnection clie
 
 
 // Receive data from a specified address and port
-std::vector<char> Networking::Server::ReceiveFrom(char* _pAddress, int _pPort)
+std::vector<char> Networking::Server::ReceiveFrom(PCSTR _pAddress, int _pPort)
 {
 	// Initialize the number of bytes received to 0
 	int bytesReceived =0;
@@ -912,4 +912,9 @@ void Networking::Server::LogToFile(const std::string& _pMessage)
 void Networking::Server::LogToConsole(const std::string& _pMessage)
 {
 	logger.logToConsole(_pMessage);
+}
+
+int Networking::Server::GetPort()
+{
+	return serverInfo.sin_port;
 }

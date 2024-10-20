@@ -101,13 +101,13 @@ void SetFamily(int _pFamily);
 void SetProtocol(int _pProtocol);
 
 // Sends data to a specific client
-int Send(char* _pSendBuffer, Networking::ClientConnection _pClient);
+int Send(PCSTR _pSendBuffer, Networking::ClientConnection _pClient);
 
 // Sends data to a specific address and port
-int SendTo(char* _pBuffer, char* _pAddress, int _pPort);
+int SendTo(PCSTR _pBuffer, PCSTR _pAddress, int _pPort);
 
 // Sends data to all connected clients
-int SendToAll(char* _pSendBuffer);
+int SendToAll(PCSTR _pSendBuffer);
 
 // Sends a file to a specific client
 void SendFile(const std::string& _pFilePath, Networking::ClientConnection client);
@@ -116,7 +116,7 @@ void SendFile(const std::string& _pFilePath, Networking::ClientConnection client
 std::vector<char> Receive(Networking::ClientConnection client);
 
 // Receives data from a specific address and port
-std::vector<char> ReceiveFrom(char* _pAddress, int _pPort);
+std::vector<char> ReceiveFrom(PCSTR _pAddress, int _pPort);
 
 // Receives a file from a specific client
 void ReceiveFile(const std::string& _pFilePath, Networking::ClientConnection client);
@@ -141,6 +141,7 @@ std::string GetClientIPAddress(ClientConnection _pClient);
 ServerType GetServerType();
 void LogToFile(const std::string& _pMessage);
 void LogToConsole(const std::string& _pMessage);
+int GetPort();
 
 private:
 
