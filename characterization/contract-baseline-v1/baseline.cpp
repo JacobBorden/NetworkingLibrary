@@ -74,6 +74,33 @@ int main(int argc,char**) {
         check(contract ? received==std::vector<char>({'a','b','c','d','e','f'}) : received==std::vector<char>({'a','b','c'}),"short read returns immediately");
         short_write=true;n=server.Send("abcdef",connection);short_write=false;
         check(contract ? n==6 : n==2,"short write returns partial count");
+        // Real IPv4 loopback, no linker seam: accumulate stream chunks until EOF.
+        // Exactly two legacy buffer lengths also exercises EOF after a full read.
+        {
+            Pair binary_pair;
+            std::vector<char> payload(1024);
+            for (size_t i=0; i<payload.size(); ++i) payload[i]=static_cast<char>(i%256);
+            size_t sent=0;
+            while (sent<payload.size()) {
+                auto count=::send(binary_pair.sender.fd,payload.data()+sent,payload.size()-sent,MSG_NOSIGNAL);
+                if (count<=0) throw std::runtime_error("binary fixture send");
+                sent+=static_cast<size_t>(count);
+            }
+            if (::shutdown(binary_pair.sender.fd,SHUT_WR)) throw std::runtime_error("binary fixture shutdown");
+            Networking::ClientConnection binary_connection{};
+            binary_connection.clientSocket=binary_pair.accepted;
+            std::vector<char> actual;
+            for (;;) {
+                pollfd ready{binary_pair.accepted,POLLIN,0};
+                if (::poll(&ready,1,1000)!=1) throw std::runtime_error("binary fixture deadline");
+                auto chunk=server.Receive(binary_connection);
+                if (chunk.empty()) break;
+                actual.insert(actual.end(),chunk.begin(),chunk.end());
+                if (actual.size()>payload.size()) throw std::runtime_error("binary fixture excess bytes");
+            }
+            check(actual==payload,"binary receive drains exact bytes before EOF");
+            check(server.Receive(binary_connection).empty(),"EOF remains observable after binary drain");
+        }
         connection.clientSocket=pair.accepted;
         ::shutdown(pair.sender.fd,SHUT_WR);
         check(server.Receive(connection).empty(),"orderly EOF empty vector");

@@ -63,3 +63,11 @@ Initial harness compilation failed because SERVER exports no include usage requi
 4. Failed construction, moves, repeated close, listener close with accepted owners, repeated connect/disconnect; exactly-once closes, fd baseline and ASan/UBSan.
 5. One hundred complete suite repetitions with no hangs or resource growth; restored strlen and resize-before-error mutations must fail their tests.
 6. Linux first; Windows and pinned http-server acceptance remain independent later gates with the current consumer steward. Full package and release acceptance remain outside this characterization task. Scoped branch publication and a draft PR were authorized on November 1, 2026; publication does not establish transport or consumer acceptance.
+
+## Binary drain and EOF characterization, November 2, 2026
+
+The loopback fixture now sends 1,024 bytes (all 256 byte values repeated four times) with explicit native send lengths, then half-closes the sender. It accumulates legacy Receive chunks through EOF and compares the complete byte vector, then checks persistent EOF. This is real IPv4 loopback evidence without send/recv seams enabled. The fixture owns its descriptors, binds only 127.0.0.1 on an ephemeral port, uses readiness waits, and runs under the existing ten-second CTest timeout. Comparisons remain active in Release. It characterizes Receive; native sending does not qualify legacy Send or repair the five known gaps.
+
+Acceptance: Debug and Release legacy runs and 100 Debug repetitions pass 13 groups each (1,326 total); each proposed-contract run passes eight groups and fails exactly the same five known gaps. The runner rejects any changed failure list. The library API and backend remain unchanged.
+
+Consumer recheck: http-server master remains 86305e4fb61d2ba06dda4523ebb64e9b65c30521. Its current CMake still lacks a GIT_TAG; main still constructs a string from Receive's data without a length and uses detached workers. The October 10 clean configure resolution above is historical evidence, not a new resolved pin. No new consumer build, compatibility acceptance or consumer edit is claimed.
