@@ -6,9 +6,21 @@
 
 // Linker seam forces fragmentation/short writes independently of OS scheduling.
 static bool fragment = false, short_write = false;
+// Stateful receive script: consume actual bytes, then EOF; record native bounds.
+static bool scripted_receive = false, script_bounds_ok = true;
+static size_t script_offset = 0, script_calls = 0;
+static std::array<char,515> script_payload{};
 extern "C" ssize_t __real_recv(int, void*, size_t, int);
 extern "C" ssize_t __real_send(int, const void*, size_t, int);
 extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
+    if (scripted_receive) {
+        ++script_calls;
+        script_bounds_ok = script_bounds_ok && n == 512;
+        const size_t count = std::min(n, script_payload.size() - script_offset);
+        std::memcpy(p, script_payload.data() + script_offset, count);
+        script_offset += count;
+        return static_cast<ssize_t>(count);
+    }
     if (fragment) { std::memcpy(p, "abc", 3); return 3; }
     return __real_recv(s,p,n,f);
 }
@@ -74,6 +86,20 @@ int main(int argc,char**) {
         check(contract ? received==std::vector<char>({'a','b','c','d','e','f'}) : received==std::vector<char>({'a','b','c'}),"short read returns immediately");
         short_write=true;n=server.Send("abcdef",connection);short_write=false;
         check(contract ? n==6 : n==2,"short write returns partial count");
+        // A full chunk must append into the next buffer region, then a short
+        // chunk ends this legacy call. EOF belongs to the following call.
+        for (size_t i=0; i<script_payload.size(); ++i)
+            script_payload[i]=static_cast<char>(i%256);
+        script_offset=0; script_calls=0; script_bounds_ok=true;
+        scripted_receive=true;
+        auto scripted_bytes=server.Receive(connection);
+        check(scripted_bytes==std::vector<char>(script_payload.begin(),script_payload.end())
+              && script_offset==515 && script_calls==2 && script_bounds_ok,
+              "stateful full and short reads append exact binary bytes");
+        auto scripted_eof=server.Receive(connection);
+        scripted_receive=false;
+        check(scripted_eof.empty() && script_offset==515 && script_calls==3 && script_bounds_ok,
+              "stateful EOF follows consumed fragmented bytes");
         // Real IPv4 loopback, no linker seam: accumulate stream chunks until EOF.
         // Exactly two legacy buffer lengths also exercises EOF after a full read.
         {

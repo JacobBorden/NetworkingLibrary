@@ -71,3 +71,18 @@ The loopback fixture now sends 1,024 bytes (all 256 byte values repeated four ti
 Acceptance: Debug and Release legacy runs and 100 Debug repetitions pass 13 groups each (1,326 total); each proposed-contract run passes eight groups and fails exactly the same five known gaps. The runner rejects any changed failure list. The library API and backend remain unchanged.
 
 Consumer recheck: http-server master remains 86305e4fb61d2ba06dda4523ebb64e9b65c30521. Its current CMake still lacks a GIT_TAG; main still constructs a string from Receive's data without a length and uses detached workers. The October 10 clean configure resolution above is historical evidence, not a new resolved pin. No new consumer build, compatibility acceptance or consumer edit is claimed.
+
+## Stateful fragmented receive characterization, November 4, 2026
+
+A byte-consuming recv seam supplies 515 binary bytes as a full 512-byte read
+followed by a three-byte short read. The fixture checks exact output equality,
+consumed offset, native buffer bounds and call counts; the next Receive observes
+EOF without consuming more bytes. This detects lost or overwritten chunks and
+unwanted reads beyond a short read. Unlike the original constant short-read
+seam, the stream has finite state and preserves embedded NUL bytes.
+
+Acceptance requires Debug/Release and 100 Debug repetitions at 15 groups each
+(1,530 group passes), with exactly the original five known failures in each
+proposed-contract run (10 passes, five failures). This is scripted receive
+characterization; real loopback evidence remains the November 2 fixture. No
+EINTR, reset, timeout, cancellation, send-all or consumer acceptance follows.
