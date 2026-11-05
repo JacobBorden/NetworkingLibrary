@@ -3,11 +3,14 @@
 #include <stdexcept>
 #include <dirent.h>
 #include <poll.h>
+#include <fcntl.h>
+#include <cerrno>
 
 // Linker seam forces fragmentation/short writes independently of OS scheduling.
 static bool fragment = false, short_write = false;
 // Stateful receive script: consume actual bytes, then EOF; record native bounds.
 static bool scripted_receive = false, script_bounds_ok = true;
+static bool error_after_progress = false;
 static size_t script_offset = 0, script_calls = 0;
 static std::array<char,515> script_payload{};
 extern "C" ssize_t __real_recv(int, void*, size_t, int);
@@ -16,7 +19,11 @@ extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
     if (scripted_receive) {
         ++script_calls;
         script_bounds_ok = script_bounds_ok && n == 512;
-        const size_t count = std::min(n, script_payload.size() - script_offset);
+        if (error_after_progress && script_offset == 512) {
+            errno = ECONNRESET;
+            return -1;
+        }
+        const size_t count = std::min(n, (error_after_progress ? size_t{512} : script_payload.size()) - script_offset);
         std::memcpy(p, script_payload.data() + script_offset, count);
         script_offset += count;
         return static_cast<ssize_t>(count);
@@ -100,6 +107,24 @@ int main(int argc,char**) {
         scripted_receive=false;
         check(scripted_eof.empty() && script_offset==515 && script_calls==3 && script_bounds_ok,
               "stateful EOF follows consumed fragmented bytes");
+        // With progress already buffered, -1 shrinks 512 bytes to 511 before
+        // the error handler closes the socket and returns apparent success.
+        {
+            Pair error_pair;
+            Networking::ClientConnection error_connection{};
+            error_connection.clientSocket=error_pair.accepted;
+            script_offset=0; script_calls=0; script_bounds_ok=true;
+            error_after_progress=true; scripted_receive=true;
+            auto partial=server.Receive(error_connection);
+            scripted_receive=false; error_after_progress=false;
+            check(partial==std::vector<char>(script_payload.begin(),script_payload.begin()+511)
+                  && script_offset==512 && script_calls==2 && script_bounds_ok,
+                  "error after full read silently drops final byte");
+            errno=0;
+            const bool closed=::fcntl(error_pair.accepted,F_GETFD)==-1 && errno==EBADF;
+            if (closed) error_pair.accepted=-1; // legacy handler consumed ownership
+            check(closed,"error after progress closes accepted socket");
+        }
         // Real IPv4 loopback, no linker seam: accumulate stream chunks until EOF.
         // Exactly two legacy buffer lengths also exercises EOF after a full read.
         {

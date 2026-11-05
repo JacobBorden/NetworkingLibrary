@@ -86,3 +86,21 @@ Acceptance requires Debug/Release and 100 Debug repetitions at 15 groups each
 proposed-contract run (10 passes, five failures). This is scripted receive
 characterization; real loopback evidence remains the November 2 fixture. No
 EINTR, reset, timeout, cancellation, send-all or consumer acceptance follows.
+
+## Error after progress characterization, November 5, 2026
+
+A finite recv seam supplies 512 binary bytes then returns -1 with ECONNRESET.
+The legacy implementation resizes the accumulated vector to 511 before handling
+that error, closes the accepted socket, and returns the truncated vector without
+an explicit error result. Two Release-active checks require those exact bytes,
+two native calls, the consumed offset/bounds, and EBADF from the closed descriptor.
+The fixture relinquishes descriptor ownership after observing closure.
+
+Acceptance: Debug/Release plus 100 Debug repetitions pass 17 groups per execution
+(1,734 passes); proposed-contract runs retain exactly five original failures
+(12 passes/five failures). These two new checks preserve legacy defect evidence
+in both modes; they do not assert that reset behavior satisfies the proposed
+contract. This is injected error evidence, not a real TCP reset, EINTR, deadline,
+cancellation, ownership repair or consumer qualification. Production is unchanged.
+The consumer remains at 86305e4fb61d2ba06dda4523ebb64e9b65c30521 with no
+GIT_TAG in its fetched CMake; no new resolved dependency or consumer build exists.
