@@ -104,3 +104,7 @@ contract. This is injected error evidence, not a real TCP reset, EINTR, deadline
 cancellation, ownership repair or consumer qualification. Production is unchanged.
 The consumer remains at 86305e4fb61d2ba06dda4523ebb64e9b65c30521 with no
 GIT_TAG in its fetched CMake; no new resolved dependency or consumer build exists.
+
+## Interrupted receive characterization — November 7, 2026
+
+The finite recv seam supplies 512 binary bytes, one EINTR, then three bytes. It checks all three calls request 512 bytes, all 515 fixture bytes are consumed, but the returned vector contains only the first 511 bytes: the recursive recovery result is discarded, and switch fallthrough closes the accepted descriptor. A separate ownership check and the final descriptor inventory detect cleanup errors. This is deterministic error injection on a real loopback connection, not native signal-delivery or repaired EINTR acceptance. The suite now has 19 legacy groups; both proposed-contract runs retain five expected failures (14 passes). Production code and consumer integration remain unchanged.

@@ -11,6 +11,7 @@ static bool fragment = false, short_write = false;
 // Stateful receive script: consume actual bytes, then EOF; record native bounds.
 static bool scripted_receive = false, script_bounds_ok = true;
 static bool error_after_progress = false;
+static bool interrupt_after_progress = false, interrupt_delivered = false;
 static size_t script_offset = 0, script_calls = 0;
 static std::array<char,515> script_payload{};
 extern "C" ssize_t __real_recv(int, void*, size_t, int);
@@ -19,6 +20,11 @@ extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
     if (scripted_receive) {
         ++script_calls;
         script_bounds_ok = script_bounds_ok && n == 512;
+        if (interrupt_after_progress && script_offset == 512 && !interrupt_delivered) {
+            interrupt_delivered = true;
+            errno = EINTR;
+            return -1;
+        }
         if (error_after_progress && script_offset == 512) {
             errno = ECONNRESET;
             return -1;
@@ -124,6 +130,24 @@ int main(int argc,char**) {
             const bool closed=::fcntl(error_pair.accepted,F_GETFD)==-1 && errno==EBADF;
             if (closed) error_pair.accepted=-1; // legacy handler consumed ownership
             check(closed,"error after progress closes accepted socket");
+        }
+        // One EINTR after a full chunk, followed by three recoverable bytes.
+        // Legacy recursion discards its result and falls through to disconnect.
+        {
+            Pair interrupted_pair;
+            Networking::ClientConnection interrupted_connection{};
+            interrupted_connection.clientSocket=interrupted_pair.accepted;
+            script_offset=0; script_calls=0; script_bounds_ok=true;
+            interrupt_delivered=false; interrupt_after_progress=true; scripted_receive=true;
+            auto partial=server.Receive(interrupted_connection);
+            scripted_receive=false; interrupt_after_progress=false;
+            check(partial==std::vector<char>(script_payload.begin(),script_payload.begin()+511)
+                  && interrupt_delivered && script_offset==515 && script_calls==3 && script_bounds_ok,
+                  "interrupted receive discards recursive recovery and final buffered byte");
+            errno=0;
+            const bool closed=::fcntl(interrupted_pair.accepted,F_GETFD)==-1 && errno==EBADF;
+            if (closed) interrupted_pair.accepted=-1;
+            check(closed,"interrupted receive falls through to disconnect after recovery");
         }
         // Real IPv4 loopback, no linker seam: accumulate stream chunks until EOF.
         // Exactly two legacy buffer lengths also exercises EOF after a full read.
