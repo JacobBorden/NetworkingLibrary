@@ -108,3 +108,16 @@ GIT_TAG in its fetched CMake; no new resolved dependency or consumer build exist
 ## Interrupted receive characterization — November 7, 2026
 
 The finite recv seam supplies 512 binary bytes, one EINTR, then three bytes. It checks all three calls request 512 bytes, all 515 fixture bytes are consumed, but the returned vector contains only the first 511 bytes: the recursive recovery result is discarded, and switch fallthrough closes the accepted descriptor. A separate ownership check and the final descriptor inventory detect cleanup errors. This is deterministic error injection on a real loopback connection, not native signal-delivery or repaired EINTR acceptance. The suite now has 19 legacy groups; both proposed-contract runs retain five expected failures (14 passes). Production code and consumer integration remain unchanged.
+
+## Peer half-close characterization — November 8, 2026
+
+After the real loopback fixture drains 1,024 binary bytes and observes persistent
+EOF, two checks establish that Receive retains the accepted descriptor and the
+reverse direction still transfers all 256 byte values across 1,024 bytes. Native
+explicit-length send/recv isolate shutdown ownership from legacy Send defects;
+poll deadlines and the CTest watchdog bound execution. The final descriptor
+inventory still verifies cleanup. Acceptance is Debug/Release plus 100 Debug
+repetitions at 21 groups (2,142 passes), with exactly five original proposed-
+contract failures in each mode (16 passes). This qualifies this legacy half-close
+path only; full-close/error ownership, cancellation, Windows and consumer
+compatibility remain open. Production code is unchanged.

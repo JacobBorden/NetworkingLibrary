@@ -175,6 +175,27 @@ int main(int argc,char**) {
             }
             check(actual==payload,"binary receive drains exact bytes before EOF");
             check(server.Receive(binary_connection).empty(),"EOF remains observable after binary drain");
+            check(::fcntl(binary_pair.accepted,F_GETFD)!=-1,
+                  "peer half-close preserves accepted socket ownership");
+            // FIN closes only the peer's sending direction. Exercise the live
+            // reverse direction with explicit lengths and every byte value.
+            size_t replied=0;
+            while (replied<payload.size()) {
+                auto count=::send(binary_pair.accepted,payload.data()+replied,
+                                  payload.size()-replied,MSG_NOSIGNAL);
+                if (count<=0) throw std::runtime_error("half-close reply send");
+                replied+=static_cast<size_t>(count);
+            }
+            std::vector<char> reply(payload.size());
+            size_t read=0;
+            while (read<reply.size()) {
+                pollfd ready{binary_pair.sender.fd,POLLIN,0};
+                if (::poll(&ready,1,1000)!=1) throw std::runtime_error("half-close reply deadline");
+                auto count=::recv(binary_pair.sender.fd,reply.data()+read,reply.size()-read,0);
+                if (count<=0) throw std::runtime_error("half-close reply receive");
+                read+=static_cast<size_t>(count);
+            }
+            check(reply==payload,"peer half-close permits exact binary reverse transfer");
         }
         connection.clientSocket=pair.accepted;
         ::shutdown(pair.sender.fd,SHUT_WR);
