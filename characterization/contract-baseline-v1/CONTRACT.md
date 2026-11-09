@@ -121,3 +121,15 @@ repetitions at 21 groups (2,142 passes), with exactly five original proposed-
 contract failures in each mode (16 passes). This qualifies this legacy half-close
 path only; full-close/error ownership, cancellation, Windows and consumer
 compatibility remain open. Production code is unchanged.
+
+## Terminal send error characterization — November 9, 2026
+
+A finite send seam injects ECONNRESET on a real IPv4 loopback connection and
+verifies one call with the exact descriptor, six payload bytes and flags zero.
+Three checks establish a -1 return, consumed descriptor ownership, and native
+peer EOF without payload after the legacy handler shuts down and closes. Poll
+and CTest watchdogs bound the fixture; final descriptor inventory checks cleanup.
+This is injected-error characterization, not a genuine network reset or repaired
+ownership contract. Production is unchanged. Debug/Release plus 100 repetitions
+require 24 groups (2,448 passes); proposed controls retain five expected gaps
+(19 passes each). Native EINTR timing and full transport acceptance remain open.

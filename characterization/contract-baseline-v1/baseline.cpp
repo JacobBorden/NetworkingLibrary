@@ -8,6 +8,9 @@
 
 // Linker seam forces fragmentation/short writes independently of OS scheduling.
 static bool fragment = false, short_write = false;
+static bool reset_send = false, send_bounds_ok = true;
+static size_t send_calls = 0;
+static int send_socket = -1;
 // Stateful receive script: consume actual bytes, then EOF; record native bounds.
 static bool scripted_receive = false, script_bounds_ok = true;
 static bool error_after_progress = false;
@@ -38,6 +41,13 @@ extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
     return __real_recv(s,p,n,f);
 }
 extern "C" ssize_t __wrap_send(int s, const void* p, size_t n, int f) {
+    if (reset_send) {
+        ++send_calls;
+        send_bounds_ok = send_bounds_ok && s == send_socket && n == 6 && f == 0
+            && std::memcmp(p,"abcdef",6) == 0;
+        errno = ECONNRESET;
+        return -1;
+    }
     if (short_write) return std::min<size_t>(n,2);
     return __real_send(s,p,n,f);
 }
@@ -99,6 +109,28 @@ int main(int argc,char**) {
         check(contract ? received==std::vector<char>({'a','b','c','d','e','f'}) : received==std::vector<char>({'a','b','c'}),"short read returns immediately");
         short_write=true;n=server.Send("abcdef",connection);short_write=false;
         check(contract ? n==6 : n==2,"short write returns partial count");
+        // A terminal send error returns -1 and consumes the supplied socket.
+        // Inject only send; real loopback shutdown/close must reach peer EOF.
+        {
+            Pair reset_pair;
+            Networking::ClientConnection reset_connection{};
+            reset_connection.clientSocket=reset_pair.accepted;
+            send_socket=reset_pair.accepted; send_calls=0; send_bounds_ok=true;
+            reset_send=true;
+            int result=server.Send("abcdef",reset_connection);
+            reset_send=false;
+            check(result==-1 && send_calls==1 && send_bounds_ok,
+                  "terminal send reset returns error with exact native arguments");
+            errno=0;
+            const bool closed=::fcntl(reset_pair.accepted,F_GETFD)==-1 && errno==EBADF;
+            if (closed) reset_pair.accepted=-1;
+            check(closed,"terminal send reset consumes accepted socket ownership");
+            pollfd ready{reset_pair.sender.fd,POLLIN,0};
+            if (::poll(&ready,1,1000)!=1) throw std::runtime_error("send reset EOF deadline");
+            char byte{};
+            check(::recv(reset_pair.sender.fd,&byte,1,0)==0,
+                  "terminal send reset disconnect reaches peer EOF without payload");
+        }
         // A full chunk must append into the next buffer region, then a short
         // chunk ends this legacy call. EOF belongs to the following call.
         for (size_t i=0; i<script_payload.size(); ++i)
