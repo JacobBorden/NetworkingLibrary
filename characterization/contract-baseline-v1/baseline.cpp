@@ -8,7 +8,7 @@
 
 // Linker seam forces fragmentation/short writes independently of OS scheduling.
 static bool fragment = false, short_write = false;
-static bool reset_send = false, send_bounds_ok = true;
+static bool reset_send = false, zero_send = false, send_bounds_ok = true;
 static size_t send_calls = 0;
 static int send_socket = -1;
 // Stateful receive script: consume actual bytes, then EOF; record native bounds.
@@ -41,10 +41,11 @@ extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
     return __real_recv(s,p,n,f);
 }
 extern "C" ssize_t __wrap_send(int s, const void* p, size_t n, int f) {
-    if (reset_send) {
+    if (reset_send || zero_send) {
         ++send_calls;
         send_bounds_ok = send_bounds_ok && s == send_socket && n == 6 && f == 0
             && std::memcmp(p,"abcdef",6) == 0;
+        if (zero_send) return 0;
         errno = ECONNRESET;
         return -1;
     }
@@ -109,6 +110,26 @@ int main(int argc,char**) {
         check(contract ? received==std::vector<char>({'a','b','c','d','e','f'}) : received==std::vector<char>({'a','b','c'}),"short read returns immediately");
         short_write=true;n=server.Send("abcdef",connection);short_write=false;
         check(contract ? n==6 : n==2,"short write returns partial count");
+        // Zero progress is distinct from a native error: legacy returns zero
+        // without closing or retrying. No data is delivered by this seam.
+        {
+            Pair zero_pair;
+            Networking::ClientConnection zero_connection{};
+            zero_connection.clientSocket=zero_pair.accepted;
+            send_socket=zero_pair.accepted; send_calls=0; send_bounds_ok=true;
+            zero_send=true;
+            int result=server.Send("abcdef",zero_connection);
+            zero_send=false;
+            check(result==0 && send_calls==1 && send_bounds_ok,
+                  "nonempty zero send returns zero without retry");
+            check(::fcntl(zero_pair.accepted,F_GETFD)!=-1,
+                  "zero send preserves accepted socket ownership");
+            char byte{};
+            errno=0;
+            auto count=::recv(zero_pair.sender.fd,&byte,1,MSG_DONTWAIT);
+            check(count==-1 && (errno==EAGAIN || errno==EWOULDBLOCK),
+                  "zero send leaves peer open without payload");
+        }
         // A terminal send error returns -1 and consumes the supplied socket.
         // Inject only send; real loopback shutdown/close must reach peer EOF.
         {

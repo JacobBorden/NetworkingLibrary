@@ -133,3 +133,16 @@ This is injected-error characterization, not a genuine network reset or repaired
 ownership contract. Production is unchanged. Debug/Release plus 100 repetitions
 require 24 groups (2,448 passes); proposed controls retain five expected gaps
 (19 passes each). Native EINTR timing and full transport acceptance remain open.
+
+## Zero-progress send characterization — November 10, 2026
+
+A finite native send seam returns zero for a six-byte nonempty request. Three
+Release-active checks require one exact native call, a zero legacy return with
+no retry, retained accepted descriptor ownership, and a real loopback peer that
+remains open without payload (nonblocking recv reports EAGAIN/EWOULDBLOCK).
+This distinguishes zero progress from the terminal error path without a timing
+sleep. The existing watchdog and descriptor inventory bound/check cleanup.
+Production is unchanged; the proposed contract requires a no-progress error,
+so these checks characterize a gap rather than accept send-all behavior.
+Debug/Release plus 100 repetitions require 27 groups (2,754 passes); both
+proposed controls retain exactly five original failures (22 passes each).

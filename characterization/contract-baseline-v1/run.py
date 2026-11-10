@@ -13,7 +13,7 @@ def run(name,cmd,expected=0):
     if expected == 8:
         gaps = [line[5:] for line in r.stdout.splitlines() if line.startswith('FAIL ')]
         wanted = ['embedded NUL truncation', 'every-byte payload starts with NUL', 'short read returns immediately', 'short write returns partial count', 'negative recv resized before error check']
-        if gaps != wanted or 'RESULT 19 passed 5 failed' not in r.stdout:
+        if gaps != wanted or 'RESULT 22 passed 5 failed' not in r.stdout:
             raise RuntimeError(name+' did not reproduce exactly the five known gaps')
 for mode in ['Debug','Release']:
     build=out/mode.lower()
@@ -23,4 +23,4 @@ for mode in ['Debug','Release']:
     run(mode+'-contract-gaps',['ctest','--test-dir',str(build),'-R','^proposed_binary_contract$','--output-on-failure'],8)
 # CTest timeouts apply to every run; require 100 consecutive repetitions.
 run('repeat-100',['ctest','--test-dir',str(out/'debug'),'-R','^legacy_characterization$','--repeat','until-fail:100','--output-on-failure'])
-print(json.dumps({'commands':len(results),'unexpected_results':sum(not x['matched'] for x in results),'characterization_groups_per_execution':24,'contract_gap_groups':5,'repeat_executions':100}))
+print(json.dumps({'commands':len(results),'unexpected_results':sum(not x['matched'] for x in results),'characterization_groups_per_execution':27,'contract_gap_groups':5,'repeat_executions':100}))
