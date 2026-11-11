@@ -197,7 +197,8 @@ int main(int argc,char**) {
             auto partial=server.Receive(interrupted_connection);
             scripted_receive=false; interrupt_after_progress=false;
             check(partial==std::vector<char>(script_payload.begin(),script_payload.begin()+511)
-                  && interrupt_delivered && script_offset==515 && script_calls==3 && script_bounds_ok,
+                  && interrupt_delivered && script_offset==515
+                  && script_calls==(error==EINTR ? 3u : 4u) && script_bounds_ok,
                   error==EINTR ? "interrupted receive discards recursive recovery and final buffered byte"
                                : "would-block receive discards recursive recovery and final buffered byte");
             errno=0;

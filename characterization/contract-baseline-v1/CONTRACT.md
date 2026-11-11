@@ -150,7 +150,7 @@ proposed controls retain exactly five original failures (22 passes each).
 
 November 11 characterization: a finite recv seam returns 512 binary bytes,
 one EAGAIN, then three recoverable bytes. Two active checks bind the exact
-three calls, 512-byte requested bounds, consumed 515-byte fixture, returned
+four calls (including an extra EOF read via EINTR fallthrough), 512-byte requested bounds, consumed 515-byte fixture, returned
 511-byte prefix, and closed descriptor. Legacy EAGAIN switch fallthrough
 discards the recursive result and disconnects after recovery, as with EINTR.
 This is injected would-block evidence, not native timeout/deadline acceptance.
