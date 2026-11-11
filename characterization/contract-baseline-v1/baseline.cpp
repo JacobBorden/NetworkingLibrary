@@ -15,6 +15,7 @@ static int send_socket = -1;
 static bool scripted_receive = false, script_bounds_ok = true;
 static bool error_after_progress = false;
 static bool interrupt_after_progress = false, interrupt_delivered = false;
+static int recovery_error = EINTR;
 static size_t script_offset = 0, script_calls = 0;
 static std::array<char,515> script_payload{};
 extern "C" ssize_t __real_recv(int, void*, size_t, int);
@@ -25,7 +26,7 @@ extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
         script_bounds_ok = script_bounds_ok && n == 512;
         if (interrupt_after_progress && script_offset == 512 && !interrupt_delivered) {
             interrupt_delivered = true;
-            errno = EINTR;
+            errno = recovery_error;
             return -1;
         }
         if (error_after_progress && script_offset == 512) {
@@ -184,9 +185,10 @@ int main(int argc,char**) {
             if (closed) error_pair.accepted=-1; // legacy handler consumed ownership
             check(closed,"error after progress closes accepted socket");
         }
-        // One EINTR after a full chunk, followed by three recoverable bytes.
+        // One EINTR or EAGAIN after a full chunk, then three recoverable bytes.
         // Legacy recursion discards its result and falls through to disconnect.
-        {
+        for (int error : {EINTR, EAGAIN}) {
+            recovery_error=error;
             Pair interrupted_pair;
             Networking::ClientConnection interrupted_connection{};
             interrupted_connection.clientSocket=interrupted_pair.accepted;
@@ -196,11 +198,13 @@ int main(int argc,char**) {
             scripted_receive=false; interrupt_after_progress=false;
             check(partial==std::vector<char>(script_payload.begin(),script_payload.begin()+511)
                   && interrupt_delivered && script_offset==515 && script_calls==3 && script_bounds_ok,
-                  "interrupted receive discards recursive recovery and final buffered byte");
+                  error==EINTR ? "interrupted receive discards recursive recovery and final buffered byte"
+                               : "would-block receive discards recursive recovery and final buffered byte");
             errno=0;
             const bool closed=::fcntl(interrupted_pair.accepted,F_GETFD)==-1 && errno==EBADF;
             if (closed) interrupted_pair.accepted=-1;
-            check(closed,"interrupted receive falls through to disconnect after recovery");
+            check(closed,error==EINTR ? "interrupted receive falls through to disconnect after recovery"
+                               : "would-block receive falls through to disconnect after recovery");
         }
         // Real IPv4 loopback, no linker seam: accumulate stream chunks until EOF.
         // Exactly two legacy buffer lengths also exercises EOF after a full read.

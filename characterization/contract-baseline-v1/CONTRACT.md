@@ -146,3 +146,12 @@ Production is unchanged; the proposed contract requires a no-progress error,
 so these checks characterize a gap rather than accept send-all behavior.
 Debug/Release plus 100 repetitions require 27 groups (2,754 passes); both
 proposed controls retain exactly five original failures (22 passes each).
+
+
+November 11 characterization: a finite recv seam returns 512 binary bytes,
+one EAGAIN, then three recoverable bytes. Two active checks bind the exact
+three calls, 512-byte requested bounds, consumed 515-byte fixture, returned
+511-byte prefix, and closed descriptor. Legacy EAGAIN switch fallthrough
+discards the recursive result and disconnects after recovery, as with EINTR.
+This is injected would-block evidence, not native timeout/deadline acceptance.
+The loopback fixture and final descriptor inventory retain resource checks.
