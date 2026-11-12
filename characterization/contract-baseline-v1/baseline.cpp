@@ -207,6 +207,30 @@ int main(int argc,char**) {
             check(closed,error==EINTR ? "interrupted receive falls through to disconnect after recovery"
                                : "would-block receive falls through to disconnect after recovery");
         }
+        // Native EAGAIN before progress: no receive seam and no timing sleep.
+        // Preflight proves the empty, connected socket is actually would-block.
+        {
+            Pair idle_pair;
+            int flags=::fcntl(idle_pair.accepted,F_GETFL);
+            if (flags<0 || ::fcntl(idle_pair.accepted,F_SETFL,flags|O_NONBLOCK))
+                throw std::runtime_error("nonblocking fixture setup");
+            char byte{};
+            errno=0;
+            auto count=::recv(idle_pair.accepted,&byte,1,MSG_PEEK);
+            if (count!=-1 || (errno!=EAGAIN && errno!=EWOULDBLOCK))
+                throw std::runtime_error("nonblocking fixture precondition");
+            Networking::ClientConnection idle_connection{};
+            idle_connection.clientSocket=idle_pair.accepted;
+            bool threw=false;
+            try { server.Receive(idle_connection); }
+            catch (const std::length_error&) { threw=true; }
+            check(threw,"native would-block receive throws length_error before error handling");
+            errno=0;
+            count=::recv(idle_pair.sender.fd,&byte,1,MSG_DONTWAIT);
+            check(::fcntl(idle_pair.accepted,F_GETFD)!=-1 && count==-1
+                  && (errno==EAGAIN || errno==EWOULDBLOCK),
+                  "native would-block exception retains socket and connected peer");
+        }
         // Real IPv4 loopback, no linker seam: accumulate stream chunks until EOF.
         // Exactly two legacy buffer lengths also exercises EOF after a full read.
         {

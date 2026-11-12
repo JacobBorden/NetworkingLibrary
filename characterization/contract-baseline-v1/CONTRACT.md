@@ -155,3 +155,16 @@ four calls (including an extra EOF read via EINTR fallthrough), 512-byte request
 discards the recursive result and disconnects after recovery, as with EINTR.
 This is injected would-block evidence, not native timeout/deadline acceptance.
 The loopback fixture and final descriptor inventory retain resource checks.
+
+
+## Native empty nonblocking receive — November 12, 2026
+
+A real IPv4 loopback accepted socket uses O_NONBLOCK; a native MSG_PEEK
+preflight verifies EAGAIN/EWOULDBLOCK with no data and no peer shutdown.
+With all linker seams disabled, Receive throws length_error while resizing
+before error handling. Two active checks require that exception and retained
+descriptor/connected-peer ownership. Final descriptor inventory checks cleanup.
+Debug/Release plus 100 repeats require 31 groups (3,162 passes); both proposed
+controls retain the same five expected failures (26 passes). This records the
+native no-progress defect, not deadline/cancellation or repaired API acceptance.
+Production and consumer code remain unchanged.
