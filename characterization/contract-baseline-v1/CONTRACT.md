@@ -168,3 +168,19 @@ Debug/Release plus 100 repeats require 31 groups (3,162 passes); both proposed
 controls retain the same five expected failures (26 passes). This records the
 native no-progress defect, not deadline/cancellation or repaired API acceptance.
 Production and consumer code remain unchanged.
+
+
+## Native nonblocking receive after progress — November 13, 2026
+
+A real loopback peer queues exactly 512 binary bytes. A blocking MSG_PEEK /
+MSG_WAITALL preflight verifies the full chunk before enabling O_NONBLOCK.
+Without receive seams, the legacy call consumes the chunk, encounters EAGAIN,
+and recursively calls Receive; the empty recursive buffer resize throws
+length_error. Three active checks require the exception, consumed queued bytes
+with retained descriptor, and successful later three-byte binary receive after
+peer half-close. The original 512 bytes never reach the caller. This differs
+from the injected recovery fixture, which supplies bytes to recursion. CTest
+watchdogs bound setup; final descriptor inventory checks cleanup. Production
+remains unchanged. Debug/Release plus 100 repeats require 34 groups (3,468
+passes); both proposed controls retain five expected failures (29 passes).
+This characterizes progress loss, not repaired transport or consumer acceptance.

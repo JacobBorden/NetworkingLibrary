@@ -231,6 +231,47 @@ int main(int argc,char**) {
                   && (errno==EAGAIN || errno==EWOULDBLOCK),
                   "native would-block exception retains socket and connected peer");
         }
+        // Native would-block after progress reaches a recursive empty Receive,
+        // whose resize throws. The consumed full chunk cannot reach the caller.
+        {
+            Pair progress_pair;
+            std::array<char,512> payload{};
+            for (size_t i=0; i<payload.size(); ++i) payload[i]=static_cast<char>(i%256);
+            size_t sent=0;
+            while (sent<payload.size()) {
+                auto n=::send(progress_pair.sender.fd,payload.data()+sent,payload.size()-sent,MSG_NOSIGNAL);
+                if (n<=0) throw std::runtime_error("progress fixture send");
+                sent+=static_cast<size_t>(n);
+            }
+            // Blocking peek establishes the entire chunk is queued, without consuming it.
+            std::array<char,512> queued{};
+            if (::recv(progress_pair.accepted,queued.data(),queued.size(),MSG_PEEK|MSG_WAITALL)!=512
+                || queued!=payload) throw std::runtime_error("progress fixture precondition");
+            int flags=::fcntl(progress_pair.accepted,F_GETFL);
+            if (flags<0 || ::fcntl(progress_pair.accepted,F_SETFL,flags|O_NONBLOCK))
+                throw std::runtime_error("progress nonblocking setup");
+            Networking::ClientConnection progress_connection{};
+            progress_connection.clientSocket=progress_pair.accepted;
+            bool threw=false;
+            try { server.Receive(progress_connection); }
+            catch (const std::length_error&) { threw=true; }
+            check(threw,"native would-block after progress throws instead of returning bytes");
+            char byte{};
+            errno=0;
+            auto remaining=::recv(progress_pair.accepted,&byte,1,MSG_PEEK);
+            check(remaining==-1 && (errno==EAGAIN || errno==EWOULDBLOCK)
+                  && ::fcntl(progress_pair.accepted,F_GETFD)!=-1,
+                  "native progress exception consumes full chunk and retains socket");
+            // The connection remains usable, but a later call cannot recover the lost chunk.
+            const char tail[]{'x','\0','y'};
+            if (::send(progress_pair.sender.fd,tail,sizeof tail,MSG_NOSIGNAL)!=sizeof tail
+                || ::shutdown(progress_pair.sender.fd,SHUT_WR))
+                throw std::runtime_error("progress recovery setup");
+            pollfd ready{progress_pair.accepted,POLLIN,0};
+            if (::poll(&ready,1,1000)!=1) throw std::runtime_error("progress recovery deadline");
+            check(server.Receive(progress_connection)==std::vector<char>(tail,tail+sizeof tail),
+                  "native progress exception permits later binary receive without lost chunk");
+        }
         // Real IPv4 loopback, no linker seam: accumulate stream chunks until EOF.
         // Exactly two legacy buffer lengths also exercises EOF after a full read.
         {
