@@ -1,0 +1,23 @@
+name: TCP characterization
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master, codex/networking-characterization]
+
+permissions:
+  contents: read
+
+jobs:
+  characterization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Legacy TCP baseline and five expected contract gaps
+        run: python3 characterization/contract-baseline-v1/run.py --output "${RUNNER_TEMP}/networking-contract-baseline"
+      - name: Boundary policy and mutation controls
+        run: python3 -B characterization/status-policy-v1/run.py --output "${RUNNER_TEMP}/networking-status-policy"
