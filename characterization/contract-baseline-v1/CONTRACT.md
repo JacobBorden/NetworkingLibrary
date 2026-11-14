@@ -184,3 +184,17 @@ watchdogs bound setup; final descriptor inventory checks cleanup. Production
 remains unchanged. Debug/Release plus 100 repeats require 34 groups (3,468
 passes); both proposed controls retain five expected failures (29 passes).
 This characterizes progress loss, not repaired transport or consumer acceptance.
+
+
+## Native receive timeout — November 14, 2026
+
+A blocking accepted IPv4 loopback socket has SO_RCVTIMEO set to 20 ms while
+its peer stays connected and sends nothing. With all receive seams disabled,
+Receive throws length_error after waiting (at least 10 ms, bounded by the
+suite's ten-second watchdog). Two further active checks establish retained
+descriptor/connected-peer ownership and a subsequent exact three-byte binary
+receive. This characterizes the native timeout path and recoverability; it does
+not implement a typed timeout, absolute deadline or cancellation contract.
+Debug/Release plus 100 repetitions require 37 groups (3,774 passes); both
+proposed-contract controls retain five known failures and 32 passes. Production
+and consumer code remain unchanged.

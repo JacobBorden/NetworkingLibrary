@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <cerrno>
+#include <chrono>
 
 // Linker seam forces fragmentation/short writes independently of OS scheduling.
 static bool fragment = false, short_write = false;
@@ -319,6 +320,35 @@ int main(int argc,char**) {
                 read+=static_cast<size_t>(count);
             }
             check(reply==payload,"peer half-close permits exact binary reverse transfer");
+        }
+        // Native timeout with receive seams disabled and peer still connected.
+        {
+            Pair timed_pair;
+            timeval timeout{0,20000};
+            if (::setsockopt(timed_pair.accepted,SOL_SOCKET,SO_RCVTIMEO,
+                             &timeout,sizeof timeout)) throw std::runtime_error("receive timeout setup");
+            Networking::ClientConnection timed_connection{};
+            timed_connection.clientSocket=timed_pair.accepted;
+            const auto start=std::chrono::steady_clock::now();
+            bool threw=false;
+            try { server.Receive(timed_connection); }
+            catch (const std::length_error&) { threw=true; }
+            const auto elapsed=std::chrono::steady_clock::now()-start;
+            check(threw && elapsed>=std::chrono::milliseconds(10),
+                  "native receive timeout throws length_error after waiting");
+            char byte{};
+            errno=0;
+            auto count=::recv(timed_pair.sender.fd,&byte,1,MSG_DONTWAIT);
+            const int peer_error=errno;
+            check(::fcntl(timed_pair.accepted,F_GETFD)!=-1 && count==-1
+                  && (peer_error==EAGAIN || peer_error==EWOULDBLOCK),
+                  "native receive timeout retains descriptor and connected peer");
+            const char payload[]{'x','\0','y'};
+            if (::send(timed_pair.sender.fd,payload,sizeof payload,MSG_NOSIGNAL)!=sizeof payload)
+                throw std::runtime_error("timeout recovery send");
+            if (::shutdown(timed_pair.sender.fd,SHUT_WR)) throw std::runtime_error("timeout recovery shutdown");
+            check(server.Receive(timed_connection)==std::vector<char>(payload,payload+sizeof payload),
+                  "native receive timeout permits later exact binary receive");
         }
         connection.clientSocket=pair.accepted;
         ::shutdown(pair.sender.fd,SHUT_WR);
