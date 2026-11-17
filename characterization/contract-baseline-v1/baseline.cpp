@@ -19,6 +19,11 @@ static bool interrupt_after_progress = false, interrupt_delivered = false;
 static int recovery_error = EINTR;
 static size_t script_offset = 0, script_calls = 0;
 static std::array<char,515> script_payload{};
+// Observe the native result for one reset fixture without changing recv behavior.
+static int observed_recv_socket = -1;
+static ssize_t observed_recv_result = 0;
+static int observed_recv_error = 0;
+static unsigned observed_recv_calls = 0;
 extern "C" ssize_t __real_recv(int, void*, size_t, int);
 extern "C" ssize_t __real_send(int, const void*, size_t, int);
 extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
@@ -40,7 +45,13 @@ extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
         return static_cast<ssize_t>(count);
     }
     if (fragment) { std::memcpy(p, "abc", 3); return 3; }
-    return __real_recv(s,p,n,f);
+    const auto result = __real_recv(s,p,n,f);
+    if (s == observed_recv_socket && observed_recv_socket >= 0) {
+        observed_recv_error = result < 0 ? errno : 0;
+        observed_recv_result = result;
+        ++observed_recv_calls;
+    }
+    return result;
 }
 extern "C" ssize_t __wrap_send(int s, const void* p, size_t n, int f) {
     if (reset_send || zero_send) {
@@ -349,6 +360,37 @@ int main(int argc,char**) {
             if (::shutdown(timed_pair.sender.fd,SHUT_WR)) throw std::runtime_error("timeout recovery shutdown");
             check(server.Receive(timed_connection)==std::vector<char>(payload,payload+sizeof payload),
                   "native receive timeout permits later exact binary receive");
+        }
+        {
+            Pair reset_pair;
+            const linger abortive_close{1, 0};
+            if (::setsockopt(reset_pair.sender.fd, SOL_SOCKET, SO_LINGER,
+                             &abortive_close, sizeof abortive_close) != 0)
+                throw std::runtime_error("receive reset linger setup");
+            const int sender = reset_pair.sender.fd;
+            reset_pair.sender.fd = -1;
+            if (::close(sender) != 0) throw std::runtime_error("receive reset peer close");
+
+            // Wait for the pending error without consuming it via SO_ERROR or recv.
+            pollfd ready{reset_pair.accepted, POLLIN, 0};
+            if (::poll(&ready, 1, 1000) != 1 || !(ready.revents & POLLERR))
+                throw std::runtime_error("receive reset did not become ready");
+
+            Networking::ClientConnection reset_connection{};
+            reset_connection.clientSocket = reset_pair.accepted;
+            observed_recv_socket = reset_pair.accepted;
+            bool threw = false;
+            try { server.Receive(reset_connection); }
+            catch (const std::length_error&) { threw = true; }
+            observed_recv_socket = -1;
+
+            check(observed_recv_calls == 1 && observed_recv_result == -1
+                  && observed_recv_error == ECONNRESET,
+                  "abortive peer close delivers native ECONNRESET to receive");
+            check(threw, "native receive reset throws length_error");
+            const bool closed = ::fcntl(reset_pair.accepted, F_GETFD) == -1 && errno == EBADF;
+            if (closed) reset_pair.accepted = -1;
+            check(!closed, "native receive reset retains accepted descriptor");
         }
         connection.clientSocket=pair.accepted;
         ::shutdown(pair.sender.fd,SHUT_WR);

@@ -198,3 +198,14 @@ not implement a typed timeout, absolute deadline or cancellation contract.
 Debug/Release plus 100 repetitions require 37 groups (3,774 passes); both
 proposed-contract controls retain five known failures and 32 passes. Production
 and consumer code remain unchanged.
+
+## Native receive reset — November 17, 2026
+
+An IPv4 loopback peer closes with zero linger and no queued payload. The
+fixture waits for `POLLERR` without consuming the pending error. A passive
+linker observation verifies that the legacy call makes one real `recv` and
+gets `-1/ECONNRESET`. The call throws `std::length_error` and leaves the accepted
+descriptor open for fixture cleanup. These three Linux characterization
+checks bring the baseline to 40 groups and the proposed-contract controls to
+35 passes and the same five expected failures. Typed reset handling and
+production socket ownership are still open.
