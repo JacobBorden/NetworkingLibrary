@@ -209,3 +209,15 @@ descriptor open for fixture cleanup. These three Linux characterization
 checks bring the baseline to 40 groups and the proposed-contract controls to
 35 passes and the same five expected failures. Typed reset handling and
 production socket ownership are still open.
+
+## Native receive reset after progress
+
+On Linux the loopback fixture queues and peeks a 512-byte binary payload,
+then closes the peer with zero linger and waits for the pending reset.
+The forwarding recv observer records a full 512-byte receive followed by
+native `ECONNRESET`. Legacy `Server::Receive` returns exactly the first
+511 bytes and closes the accepted descriptor. The fixture relinquishes the
+closed handle and the final descriptor inventory checks cleanup. This
+records the legacy loss of one byte and the implicit ownership transfer.
+The baseline has 43 groups. Both proposed-contract controls retain 38 passes
+and the same five expected failures.
