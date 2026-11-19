@@ -6,6 +6,8 @@
 #include <fcntl.h>
 #include <cerrno>
 #include <chrono>
+#include <signal.h>
+#include <thread>
 
 // Linker seam forces fragmentation/short writes independently of OS scheduling.
 static bool fragment = false, short_write = false;
@@ -19,7 +21,7 @@ static bool interrupt_after_progress = false, interrupt_delivered = false;
 static int recovery_error = EINTR;
 static size_t script_offset = 0, script_calls = 0;
 static std::array<char,515> script_payload{};
-// Record the native recv sequence for reset fixtures without injecting results.
+// Record the native recv sequence without injecting results.
 struct RecvObservation {
     ssize_t result;
     int error;
@@ -75,6 +77,20 @@ struct Fd {
     ~Fd(){if(fd>=0) ::close(fd);}
     Fd(const Fd&)=delete;
     Fd& operator=(const Fd&)=delete;
+};
+// Install a handler without SA_RESTART for the interrupt fixture.
+struct ReceiveSignal {
+    struct sigaction previous{};
+    ReceiveSignal() {
+        struct sigaction action{};
+        action.sa_handler = [](int) {};
+        ::sigemptyset(&action.sa_mask);
+        if (::sigaction(SIGUSR1, &action, &previous) != 0)
+            throw std::runtime_error("receive signal handler setup");
+    }
+    ~ReceiveSignal() { ::sigaction(SIGUSR1, &previous, nullptr); }
+    ReceiveSignal(const ReceiveSignal&) = delete;
+    ReceiveSignal& operator=(const ReceiveSignal&) = delete;
 };
 struct Pair {
     Fd listener{::socket(AF_INET,SOCK_STREAM,0)};
@@ -434,6 +450,49 @@ int main(int argc,char**) {
             check(partial == std::vector<char>(payload.begin(), payload.end() - 1),
                   "native reset after progress returns 511 of 512 bytes");
             check(closed, "native reset after progress closes accepted descriptor");
+        }
+        {
+            Pair interrupted_pair;
+            const timeval timeout{1, 0};
+            if (::setsockopt(interrupted_pair.accepted, SOL_SOCKET, SO_RCVTIMEO,
+                             &timeout, sizeof timeout) != 0)
+                throw std::runtime_error("interrupted receive watchdog setup");
+
+            Networking::ClientConnection interrupted_connection{};
+            interrupted_connection.clientSocket = interrupted_pair.accepted;
+            bool threw = false;
+            {
+                ReceiveSignal handler;
+                const pthread_t receiver = ::pthread_self();
+                std::jthread interrupter([receiver](std::stop_token stop) {
+                    // Repeat in case the first signal arrives before recv blocks.
+                    while (!stop.stop_requested()) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        if (!stop.stop_requested() && ::pthread_kill(receiver, SIGUSR1) != 0)
+                            return;
+                    }
+                });
+                observed_recv_calls = 0;
+                observed_recv_socket = interrupted_pair.accepted;
+                try { server.Receive(interrupted_connection); }
+                catch (const std::length_error&) { threw = true; }
+                observed_recv_socket = -1;
+            } // Join the signal sender before restoring the handler.
+
+            check(observed_recv_calls == 1 && observed_recvs[0].result == -1
+                  && observed_recvs[0].error == EINTR,
+                  "targeted signal interrupts native recv with EINTR");
+            check(threw, "native EINTR before progress throws length_error");
+            const bool open = ::fcntl(interrupted_pair.accepted, F_GETFD) != -1;
+            if (!open) interrupted_pair.accepted = -1;
+            const char payload[]{'x', '\0', 'y'};
+            if (open && (::send(interrupted_pair.sender.fd, payload, sizeof payload,
+                                 MSG_NOSIGNAL) != sizeof payload
+                         || ::shutdown(interrupted_pair.sender.fd, SHUT_WR) != 0))
+                throw std::runtime_error("interrupted receive recovery setup");
+            check(open && server.Receive(interrupted_connection)
+                              == std::vector<char>(payload, payload + sizeof payload),
+                  "native EINTR retains the descriptor for exact binary receive");
         }
         connection.clientSocket=pair.accepted;
         ::shutdown(pair.sender.fd,SHUT_WR);

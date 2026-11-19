@@ -221,3 +221,16 @@ closed handle and the final descriptor inventory checks cleanup. This
 records the legacy loss of one byte and the implicit ownership transfer.
 The baseline has 43 groups. Both proposed-contract controls retain 38 passes
 and the same five expected failures.
+
+
+## Native receive interruption before progress
+
+A directed SIGUSR1 interrupts a blocking receive on an empty IPv4 loopback
+connection. The forwarding observer requires exactly one real recv returning
+-1 with EINTR. Legacy Receive throws std::length_error before its error handler
+and leaves the descriptor usable for a later exact three-byte receive with an
+embedded NUL. The sender thread joins before the signal handler is restored.
+A socket receive timeout and the CTest watchdog bound the fixture. The baseline
+has 46 groups per execution. Both proposed-contract controls retain the five
+known failures. Signal interruption after progress and repaired transport
+semantics remain open.
