@@ -27,7 +27,7 @@ struct RecvObservation {
     int error;
 };
 static int observed_recv_socket = -1;
-static std::array<RecvObservation, 2> observed_recvs{};
+static std::array<RecvObservation, 3> observed_recvs{};
 static size_t observed_recv_calls = 0;
 extern "C" ssize_t __real_recv(int, void*, size_t, int);
 extern "C" ssize_t __real_send(int, const void*, size_t, int);
@@ -493,6 +493,60 @@ int main(int argc,char**) {
             check(open && server.Receive(interrupted_connection)
                               == std::vector<char>(payload, payload + sizeof payload),
                   "native EINTR retains the descriptor for exact binary receive");
+        }
+        {
+            Pair timed_pair;
+            const timeval timeout{0, 20000};
+            if (::setsockopt(timed_pair.accepted, SOL_SOCKET, SO_RCVTIMEO,
+                             &timeout, sizeof timeout) != 0)
+                throw std::runtime_error("timeout after progress setup");
+
+            std::array<char, 512> payload{};
+            for (size_t i = 0; i < payload.size(); ++i)
+                payload[i] = static_cast<char>(i % 256);
+            size_t sent = 0;
+            while (sent < payload.size()) {
+                const auto count = ::send(timed_pair.sender.fd, payload.data() + sent,
+                                          payload.size() - sent, MSG_NOSIGNAL);
+                if (count <= 0) throw std::runtime_error("timeout progress fixture send");
+                sent += static_cast<size_t>(count);
+            }
+            // Confirm the full chunk is queued. The peer stays open and idle.
+            std::array<char, 512> queued{};
+            if (::recv(timed_pair.accepted, queued.data(), queued.size(),
+                       MSG_PEEK | MSG_WAITALL) != static_cast<ssize_t>(queued.size())
+                || queued != payload)
+                throw std::runtime_error("timeout progress fixture precondition");
+
+            Networking::ClientConnection timed_connection{};
+            timed_connection.clientSocket = timed_pair.accepted;
+            observed_recv_calls = 0;
+            observed_recv_socket = timed_pair.accepted;
+            const auto start = std::chrono::steady_clock::now();
+            bool threw = false;
+            try { server.Receive(timed_connection); }
+            catch (const std::length_error&) { threw = true; }
+            const auto elapsed = std::chrono::steady_clock::now() - start;
+            observed_recv_socket = -1;
+
+            // Linux reports SO_RCVTIMEO expiry as EAGAIN or EWOULDBLOCK.
+            const auto timed_out = [](const RecvObservation& read) {
+                return read.result == -1 && (read.error == EAGAIN || read.error == EWOULDBLOCK);
+            };
+            check(observed_recv_calls == 3 && observed_recvs[0].result == 512
+                  && timed_out(observed_recvs[1]) && timed_out(observed_recvs[2])
+                  && elapsed >= std::chrono::milliseconds(20),
+                  "native receive makes progress before timing out twice");
+            check(threw, "native timeout after progress throws instead of returning consumed bytes");
+
+            const bool open = ::fcntl(timed_pair.accepted, F_GETFD) != -1;
+            if (!open) timed_pair.accepted = -1;
+            const char tail[]{'x', '\0', 'y'};
+            if (open && (::send(timed_pair.sender.fd, tail, sizeof tail, MSG_NOSIGNAL)
+                             != sizeof tail || ::shutdown(timed_pair.sender.fd, SHUT_WR) != 0))
+                throw std::runtime_error("timeout progress recovery setup");
+            check(open && server.Receive(timed_connection) == std::vector<char>(tail, tail + sizeof tail),
+                  "native timeout after progress retains the descriptor for later binary receive");
         }
         connection.clientSocket=pair.accepted;
         ::shutdown(pair.sender.fd,SHUT_WR);

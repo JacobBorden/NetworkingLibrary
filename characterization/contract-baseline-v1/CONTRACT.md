@@ -234,3 +234,16 @@ A socket receive timeout and the CTest watchdog bound the fixture. The baseline
 has 46 groups per execution. Both proposed-contract controls retain the five
 known failures. Signal interruption after progress and repaired transport
 semantics remain open.
+
+## Native receive timeout after progress
+
+A blocking IPv4 loopback socket with a 20 ms receive timeout starts with
+exactly 512 queued binary bytes. The peer stays connected and idle. The
+forwarding observer records one full native read and two timeout results,
+including the recursive legacy retry. The check also requires at least
+20 ms of elapsed time. Legacy Receive throws std::length_error and cannot
+return the consumed chunk. The accepted descriptor remains usable and a
+later call returns exactly the new three-byte payload with an embedded NUL.
+The baseline has 49 groups. Both proposed-contract controls retain 44 passes
+and five expected failures. Typed timeout, retained progress and a single
+deadline across retries remain requirements for the replacement API.
