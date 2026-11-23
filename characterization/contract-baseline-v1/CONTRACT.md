@@ -247,3 +247,18 @@ later call returns exactly the new three-byte payload with an embedded NUL.
 The baseline has 49 groups. Both proposed-contract controls retain 44 passes
 and five expected failures. Typed timeout, retained progress and a single
 deadline across retries remain requirements for the replacement API.
+
+## Native receive interruption after progress
+
+An IPv4 loopback peer queues 512 binary bytes and stays connected. A directed
+SIGUSR1 interrupts the blocked read after the full chunk and interrupts the
+recursive retry before it receives any bytes. The forwarding observer records
+512 bytes followed by two native EINTR results. Legacy `Receive` throws
+`std::length_error` instead of returning the consumed bytes. The accepted
+descriptor stays open and a separate call receives an exact three-byte payload
+with an embedded NUL. The socket receive timeout and CTest watchdog bound the
+fixture.
+
+The baseline has 52 groups. Both proposed-contract controls retain 47 passes
+and five expected failures. Retaining partial progress and retrying under one
+deadline remain requirements for the proposed transport.

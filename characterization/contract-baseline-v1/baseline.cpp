@@ -92,6 +92,17 @@ struct ReceiveSignal {
     ReceiveSignal(const ReceiveSignal&) = delete;
     ReceiveSignal& operator=(const ReceiveSignal&) = delete;
 };
+static std::jthread interrupt_receiver() {
+    const pthread_t receiver = ::pthread_self();
+    return std::jthread([receiver](std::stop_token stop) {
+        // Keep trying in case a signal arrives before the receiver blocks.
+        while (!stop.stop_requested()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (!stop.stop_requested() && ::pthread_kill(receiver, SIGUSR1) != 0)
+                return;
+        }
+    });
+}
 struct Pair {
     Fd listener{::socket(AF_INET,SOCK_STREAM,0)};
     Fd sender{::socket(AF_INET,SOCK_STREAM,0)};
@@ -131,6 +142,24 @@ struct Pair {
         return out;
     }
 };
+static void queue_binary_chunk(const Pair& pair) {
+    std::array<char, 512> payload{};
+    for (size_t i = 0; i < payload.size(); ++i)
+        payload[i] = static_cast<char>(i % 256);
+    size_t sent = 0;
+    while (sent < payload.size()) {
+        const auto count = ::send(pair.sender.fd, payload.data() + sent,
+                                  payload.size() - sent, MSG_NOSIGNAL);
+        if (count <= 0) throw std::runtime_error("binary chunk fixture send");
+        sent += static_cast<size_t>(count);
+    }
+    // Confirm the full chunk is queued. The peer stays open and idle.
+    std::array<char, 512> queued{};
+    if (::recv(pair.accepted, queued.data(), queued.size(),
+               MSG_PEEK | MSG_WAITALL) != static_cast<ssize_t>(queued.size())
+        || queued != payload)
+        throw std::runtime_error("binary chunk fixture precondition");
+}
 static int fd_count(){DIR* d=opendir("/proc/self/fd");if(!d) throw std::runtime_error("fd inventory");int n=0;while(readdir(d))++n;closedir(d);return n;}
 int main(int argc,char**) {
     const bool contract=argc>1;
@@ -463,15 +492,7 @@ int main(int argc,char**) {
             bool threw = false;
             {
                 ReceiveSignal handler;
-                const pthread_t receiver = ::pthread_self();
-                std::jthread interrupter([receiver](std::stop_token stop) {
-                    // Repeat in case the first signal arrives before recv blocks.
-                    while (!stop.stop_requested()) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                        if (!stop.stop_requested() && ::pthread_kill(receiver, SIGUSR1) != 0)
-                            return;
-                    }
-                });
+                auto interrupter = interrupt_receiver();
                 observed_recv_calls = 0;
                 observed_recv_socket = interrupted_pair.accepted;
                 try { server.Receive(interrupted_connection); }
@@ -495,28 +516,52 @@ int main(int argc,char**) {
                   "native EINTR retains the descriptor for exact binary receive");
         }
         {
+            Pair interrupted_pair;
+            const timeval timeout{1, 0};
+            if (::setsockopt(interrupted_pair.accepted, SOL_SOCKET, SO_RCVTIMEO,
+                             &timeout, sizeof timeout) != 0)
+                throw std::runtime_error("interruption after progress watchdog setup");
+            queue_binary_chunk(interrupted_pair);
+
+            Networking::ClientConnection interrupted_connection{};
+            interrupted_connection.clientSocket = interrupted_pair.accepted;
+            bool threw = false;
+            {
+                ReceiveSignal handler;
+                auto interrupter = interrupt_receiver();
+                observed_recv_calls = 0;
+                observed_recv_socket = interrupted_pair.accepted;
+                try { server.Receive(interrupted_connection); }
+                catch (const std::length_error&) { threw = true; }
+                observed_recv_socket = -1;
+            }
+
+            const auto interrupted = [](const RecvObservation& read) {
+                return read.result == -1 && read.error == EINTR;
+            };
+            check(observed_recv_calls == 3 && observed_recvs[0].result == 512
+                  && interrupted(observed_recvs[1]) && interrupted(observed_recvs[2]),
+                  "native receive makes progress before two EINTR results");
+            check(threw, "native EINTR after progress throws instead of returning consumed bytes");
+
+            const bool open = ::fcntl(interrupted_pair.accepted, F_GETFD) != -1;
+            if (!open) interrupted_pair.accepted = -1;
+            const char tail[]{'x', '\0', 'y'};
+            if (open && (::send(interrupted_pair.sender.fd, tail, sizeof tail, MSG_NOSIGNAL)
+                             != sizeof tail || ::shutdown(interrupted_pair.sender.fd, SHUT_WR) != 0))
+                throw std::runtime_error("interruption after progress recovery setup");
+            check(open && server.Receive(interrupted_connection)
+                              == std::vector<char>(tail, tail + sizeof tail),
+                  "native EINTR after progress retains the descriptor for later binary receive");
+        }
+        {
             Pair timed_pair;
             const timeval timeout{0, 20000};
             if (::setsockopt(timed_pair.accepted, SOL_SOCKET, SO_RCVTIMEO,
                              &timeout, sizeof timeout) != 0)
                 throw std::runtime_error("timeout after progress setup");
 
-            std::array<char, 512> payload{};
-            for (size_t i = 0; i < payload.size(); ++i)
-                payload[i] = static_cast<char>(i % 256);
-            size_t sent = 0;
-            while (sent < payload.size()) {
-                const auto count = ::send(timed_pair.sender.fd, payload.data() + sent,
-                                          payload.size() - sent, MSG_NOSIGNAL);
-                if (count <= 0) throw std::runtime_error("timeout progress fixture send");
-                sent += static_cast<size_t>(count);
-            }
-            // Confirm the full chunk is queued. The peer stays open and idle.
-            std::array<char, 512> queued{};
-            if (::recv(timed_pair.accepted, queued.data(), queued.size(),
-                       MSG_PEEK | MSG_WAITALL) != static_cast<ssize_t>(queued.size())
-                || queued != payload)
-                throw std::runtime_error("timeout progress fixture precondition");
+            queue_binary_chunk(timed_pair);
 
             Networking::ClientConnection timed_connection{};
             timed_connection.clientSocket = timed_pair.accepted;
