@@ -29,6 +29,15 @@ struct RecvObservation {
 static int observed_recv_socket = -1;
 static std::array<RecvObservation, 3> observed_recvs{};
 static size_t observed_recv_calls = 0;
+// Capture the listener created by Server without replacing the native call.
+static bool capture_listener = false;
+static int server_listener = -1;
+extern "C" int __real_listen(int, int);
+extern "C" int __wrap_listen(int socket, int backlog) {
+    const int result = __real_listen(socket, backlog);
+    if (capture_listener && result == 0) server_listener = socket;
+    return result;
+}
 extern "C" ssize_t __real_recv(int, void*, size_t, int);
 extern "C" ssize_t __real_send(int, const void*, size_t, int);
 extern "C" ssize_t __wrap_recv(int s, void* p, size_t n, int f) {
@@ -167,7 +176,9 @@ int main(int argc,char**) {
     auto check=[&](bool result,const char* name){std::cout<<(result?"PASS ":"FAIL ")<<name<<'\n';result?++passes:++failures;};
     int before=fd_count();
     {
+        capture_listener = true;
         Networking::Server server(0,Networking::IPv4,"baseline.log");
+        capture_listener = false;
         Networking::ClientConnection connection{};
         Pair pair; connection.clientSocket=pair.sender.fd;
         check(server.Send("",connection)==0,"empty send returns zero");
@@ -599,7 +610,52 @@ int main(int argc,char**) {
         connection.clientSocket=-1;bool length_error=false;
         try {server.Receive(connection);}catch(const std::length_error&){length_error=true;}
         check(contract ? !length_error : length_error,"negative recv resized before error check");
+        // Exercise the actual listener and the connection registered by Accept.
+        sockaddr_in listener_address{};
+        socklen_t address_size = sizeof listener_address;
+        if (server_listener < 0
+            || ::getsockname(server_listener, reinterpret_cast<sockaddr*>(&listener_address),
+                             &address_size) != 0
+            || listener_address.sin_family != AF_INET
+            || listener_address.sin_addr.s_addr != htonl(INADDR_LOOPBACK)
+            || listener_address.sin_port == 0)
+            throw std::runtime_error("shutdown fixture requires an ephemeral IPv4 loopback listener");
+        Fd peer{::socket(AF_INET, SOCK_STREAM, 0)};
+        if (::connect(peer.fd, reinterpret_cast<const sockaddr*>(&listener_address), address_size) != 0)
+            throw std::runtime_error("shutdown fixture connect");
+        pollfd listener_ready{server_listener, POLLIN, 0};
+        if (::poll(&listener_ready, 1, 1000) != 1 || !(listener_ready.revents & POLLIN))
+            throw std::runtime_error("shutdown fixture accept deadline");
+        const auto accepted = server.Accept();
+        Fd accepted_fd{accepted.clientSocket};
         server.Shutdown();
+        const bool listener_closed = ::fcntl(server_listener, F_GETFD) == -1 && errno == EBADF;
+        check(listener_closed && !server.ServerIsRunning(),
+              "shutdown closes the listener and clears running state");
+
+        const char live_payload[] = {'x', '\0', 'y'};
+        const bool accepted_open = ::fcntl(accepted_fd.fd, F_GETFD) != -1;
+        if (!accepted_open) accepted_fd.fd = -1;
+        bool received_after_shutdown = false;
+        if (accepted_open) {
+            if (::send(peer.fd, live_payload, sizeof live_payload, MSG_NOSIGNAL) != sizeof live_payload
+                || ::shutdown(peer.fd, SHUT_WR) != 0)
+                throw std::runtime_error("shutdown fixture send");
+            pollfd ready{accepted_fd.fd, POLLIN, 0};
+            if (::poll(&ready, 1, 1000) != 1 || !(ready.revents & POLLIN))
+                throw std::runtime_error("shutdown fixture receive deadline");
+            const std::vector<char> expected(live_payload, live_payload + sizeof live_payload);
+            received_after_shutdown = server.Receive(accepted) == expected;
+        }
+        check(received_after_shutdown, "accepted connection receives exact binary data after listener shutdown");
+
+        bool accepted_closed = false;
+        if (accepted_open) {
+            server.DisconnectClient(accepted);
+            accepted_closed = ::fcntl(accepted_fd.fd, F_GETFD) == -1 && errno == EBADF;
+            if (accepted_closed) accepted_fd.fd = -1;
+        }
+        check(accepted_closed, "explicit disconnect closes the accepted descriptor after listener shutdown");
     }
     check(fd_count()==before,"harness explicit cleanup restores fd count");
     std::cout<<"RESULT "<<passes<<" passed "<<failures<<" failed\n";

@@ -262,3 +262,18 @@ fixture.
 The baseline has 52 groups. Both proposed-contract controls retain 47 passes
 and five expected failures. Retaining partial progress and retrying under one
 deadline remain requirements for the proposed transport.
+
+## Listener shutdown with a registered client, November 25, 2026
+
+The Linux fixture uses a forwarding `listen` observer to find the real
+legacy listener and verifies that its address is IPv4 loopback with an
+ephemeral port. A native peer connects and the library accepts and registers
+it. Three active checks verify that `Shutdown` closes the listener and clears
+the running flag, the accepted socket can still receive three exact bytes
+including an embedded NUL, and `DisconnectClient` then closes that descriptor.
+The final descriptor inventory also covers this fixture. This establishes the
+serial legacy shutdown boundary. Concurrent shutdown, cancellation and
+destructor cleanup remain outside this characterization.
+
+The baseline has 55 groups. Each proposed-contract control has 50 passes and
+the same five expected failures.
