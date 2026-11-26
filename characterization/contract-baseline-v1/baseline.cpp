@@ -82,6 +82,7 @@ extern "C" ssize_t __wrap_send(int s, const void* p, size_t n, int f) {
 }
 struct Fd {
     int fd = -1;
+    Fd() = default;
     explicit Fd(int value):fd(value) { if(fd<0) throw std::runtime_error("socket setup"); }
     ~Fd(){if(fd>=0) ::close(fd);}
     Fd(const Fd&)=delete;
@@ -168,6 +169,22 @@ static void queue_binary_chunk(const Pair& pair) {
                MSG_PEEK | MSG_WAITALL) != static_cast<ssize_t>(queued.size())
         || queued != payload)
         throw std::runtime_error("binary chunk fixture precondition");
+}
+static void connect_loopback_peer(int listener, int peer) {
+    sockaddr_in listener_address{};
+    socklen_t address_size = sizeof listener_address;
+    if (listener < 0
+        || ::getsockname(listener, reinterpret_cast<sockaddr*>(&listener_address),
+                         &address_size) != 0
+        || listener_address.sin_family != AF_INET
+        || listener_address.sin_addr.s_addr != htonl(INADDR_LOOPBACK)
+        || listener_address.sin_port == 0)
+        throw std::runtime_error("server fixture requires an ephemeral IPv4 loopback listener");
+    if (::connect(peer, reinterpret_cast<const sockaddr*>(&listener_address), address_size) != 0)
+        throw std::runtime_error("server fixture connect");
+    pollfd listener_ready{listener, POLLIN, 0};
+    if (::poll(&listener_ready, 1, 1000) != 1 || !(listener_ready.revents & POLLIN))
+        throw std::runtime_error("server fixture accept deadline");
 }
 static int fd_count(){DIR* d=opendir("/proc/self/fd");if(!d) throw std::runtime_error("fd inventory");int n=0;while(readdir(d))++n;closedir(d);return n;}
 int main(int argc,char**) {
@@ -611,21 +628,8 @@ int main(int argc,char**) {
         try {server.Receive(connection);}catch(const std::length_error&){length_error=true;}
         check(contract ? !length_error : length_error,"negative recv resized before error check");
         // Exercise the actual listener and the connection registered by Accept.
-        sockaddr_in listener_address{};
-        socklen_t address_size = sizeof listener_address;
-        if (server_listener < 0
-            || ::getsockname(server_listener, reinterpret_cast<sockaddr*>(&listener_address),
-                             &address_size) != 0
-            || listener_address.sin_family != AF_INET
-            || listener_address.sin_addr.s_addr != htonl(INADDR_LOOPBACK)
-            || listener_address.sin_port == 0)
-            throw std::runtime_error("shutdown fixture requires an ephemeral IPv4 loopback listener");
         Fd peer{::socket(AF_INET, SOCK_STREAM, 0)};
-        if (::connect(peer.fd, reinterpret_cast<const sockaddr*>(&listener_address), address_size) != 0)
-            throw std::runtime_error("shutdown fixture connect");
-        pollfd listener_ready{server_listener, POLLIN, 0};
-        if (::poll(&listener_ready, 1, 1000) != 1 || !(listener_ready.revents & POLLIN))
-            throw std::runtime_error("shutdown fixture accept deadline");
+        connect_loopback_peer(server_listener, peer.fd);
         const auto accepted = server.Accept();
         Fd accepted_fd{accepted.clientSocket};
         server.Shutdown();
@@ -656,6 +660,49 @@ int main(int argc,char**) {
             if (accepted_closed) accepted_fd.fd = -1;
         }
         check(accepted_closed, "explicit disconnect closes the accepted descriptor after listener shutdown");
+    }
+    {
+        Fd listener;
+        Fd accepted_fd;
+        Fd peer{::socket(AF_INET, SOCK_STREAM, 0)};
+        {
+            server_listener = -1;
+            capture_listener = true;
+            Networking::Server server(0, Networking::IPv4, "destructor.log");
+            capture_listener = false;
+            listener.fd = server_listener;
+            connect_loopback_peer(listener.fd, peer.fd);
+            accepted_fd.fd = server.Accept().clientSocket;
+            const auto clients = server.getClients();
+            if (accepted_fd.fd < 0 || clients.size() != 1
+                || clients.front().clientSocket != accepted_fd.fd)
+                throw std::runtime_error("destructor fixture requires one registered client");
+        }
+
+        // Check both descriptors before allocating any new ones. If a future
+        // destructor closes them, the guards must relinquish the stale numbers.
+        int accepting = 0;
+        socklen_t accepting_size = sizeof accepting;
+        const int listener_status = ::getsockopt(listener.fd, SOL_SOCKET, SO_ACCEPTCONN,
+                                                 &accepting, &accepting_size);
+        if (listener_status == -1 && errno == EBADF) listener.fd = -1;
+        check(listener_status == 0 && accepting == 1,
+              "server destruction leaves its TCP listener accepting");
+
+        sockaddr_in remote{};
+        socklen_t remote_size = sizeof remote;
+        const int peer_status = ::getpeername(accepted_fd.fd,
+                                             reinterpret_cast<sockaddr*>(&remote), &remote_size);
+        if (peer_status == -1 && errno == EBADF) accepted_fd.fd = -1;
+        sockaddr_in local{};
+        socklen_t local_size = sizeof local;
+        const int local_status = ::getsockname(peer.fd, reinterpret_cast<sockaddr*>(&local),
+                                               &local_size);
+        check(peer_status == 0 && local_status == 0 && remote.sin_family == AF_INET
+              && remote.sin_addr.s_addr == htonl(INADDR_LOOPBACK)
+              && remote.sin_addr.s_addr == local.sin_addr.s_addr
+              && remote.sin_port == local.sin_port,
+              "server destruction leaves its registered TCP socket connected");
     }
     check(fd_count()==before,"harness explicit cleanup restores fd count");
     std::cout<<"RESULT "<<passes<<" passed "<<failures<<" failed\n";

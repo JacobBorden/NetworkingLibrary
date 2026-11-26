@@ -277,3 +277,17 @@ destructor cleanup remain outside this characterization.
 
 The baseline has 55 groups. Each proposed-contract control has 50 passes and
 the same five expected failures.
+
+## Live listener and accepted connection at server destruction, November 26, 2026
+
+A second ephemeral IPv4 loopback server accepts a real peer and verifies the
+accepted descriptor is in the server's client list before leaving scope. Two
+active checks verify legacy destructor behavior. The native listener still
+reports `SO_ACCEPTCONN`, and the accepted descriptor still reports the original
+peer's IPv4 endpoint. Test-owned guards close surviving descriptors, and the
+final descriptor inventory checks cleanup. This captures serial ownership
+behavior for the proposed RAII backend. Concurrent lifetime and cancellation
+remain open.
+
+The baseline has 57 groups. Each proposed-contract control has 52 passes and
+the same five expected failures from the binary-transfer contract.
