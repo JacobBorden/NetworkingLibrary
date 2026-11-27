@@ -637,6 +637,22 @@ int main(int argc,char**) {
         check(listener_closed && !server.ServerIsRunning(),
               "shutdown closes the listener and clears running state");
 
+        // Reuse the old descriptor number before Shutdown sees it again.
+        // A duplicate of the peer makes an accidental shutdown observable as EOF.
+        if (listener_closed) {
+            Fd reused{::fcntl(peer.fd, F_DUPFD_CLOEXEC, server_listener)};
+            if (reused.fd != server_listener)
+                throw std::runtime_error("shutdown fixture did not reuse the listener descriptor");
+
+            server.Shutdown();
+            const bool reused_open = ::fcntl(reused.fd, F_GETFD) != -1;
+            if (!reused_open) reused.fd = -1;
+            check(reused_open && !server.ServerIsRunning(),
+                  "repeated shutdown leaves the recycled descriptor open");
+        } else {
+            check(false, "repeated shutdown leaves the recycled descriptor open");
+        }
+
         const char live_payload[] = {'x', '\0', 'y'};
         const bool accepted_open = ::fcntl(accepted_fd.fd, F_GETFD) != -1;
         if (!accepted_open) accepted_fd.fd = -1;

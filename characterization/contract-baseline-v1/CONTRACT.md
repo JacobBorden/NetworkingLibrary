@@ -291,3 +291,15 @@ remain open.
 
 The baseline has 57 groups. Each proposed-contract control has 52 passes and
 the same five expected failures from the binary-transfer contract.
+
+## Repeated listener shutdown after descriptor reuse, November 27, 2026
+
+The registered-client loopback fixture duplicates its connected peer into the
+descriptor slot freed by the first `Shutdown`. A second `Shutdown` leaves that
+descriptor open and the server stopped. The existing three-byte binary receive
+also checks that repeated shutdown did not disable the peer's write direction.
+The fixture retains the watchdog, disconnect and final descriptor inventory
+checks. This covers serial idempotence with a recycled Linux descriptor.
+
+The baseline has 58 groups. Each proposed-contract control has 53 passes and
+the same five expected failures.
